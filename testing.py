@@ -4,7 +4,7 @@ import requests
 import codecs
 import os
 from dotenv import load_dotenv
-from requests.api import get
+
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path)
@@ -70,12 +70,8 @@ def get_all_orders(status=0, date_end=get_now_time()):
     return orders
 
 
-
-
 def barcode_key_for_sorting(order):
     return int(order['barcode'])
-
-
 
 
 def get_orders_ids(orders):
@@ -83,7 +79,6 @@ def get_orders_ids(orders):
     for order in orders:
         ids.append(int(order['orderId']))
     return ids
-
 
 
 if __name__ == '__main__':
