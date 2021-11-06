@@ -105,8 +105,45 @@ def get_barcodes_and_ids(orders):
         else:
             barcodes_and_ids[barcode] += [id]
     return barcodes_and_ids
+
+
+
+
+def create_pdf_stickers_by_barcodes_and_ids(barcodes_and_ids):
+    url_for_getting_stikers = 'https://suppliers-api.wildberries.ru/api/v2/orders/stickers/pdf'
+    data_for_pdf = ''
+    results_file = []
+    for barcode in barcodes_and_ids.keys():
+        pdfs=['pdf/blank.pdf']
+        for id in barcodes_and_ids[barcode]:
+            json_orders_id = {
+                "orderIds": [int(id)]
+            }
+            response = requests.post(
+                url_for_getting_stikers,
+                json=json_orders_id,
+                headers=headers)
+            data_for_pdf = response.json()['data']['file']
+            file_data = bytes(data_for_pdf, 'utf-8')
+            with open(f'pdf/barcodes/{id}.pdf', 'wb') as f:
+                f.write(codecs.decode(file_data, 'base64'))
+            # with open(f'id_and_data.txt', 'a') as f:
+            #     print(id, data_for_pdf, file=f)
+            pdfs += [f'pdf/barcodes/{id}.pdf']
+        merger = PdfFileMerger()
+        for pdf in pdfs:
+            merger.append(pdf)
+        merger.write(f"pdf/barcodes/result_{barcode}.pdf")
+        results_file.append(f"pdf/barcodes/result_{barcode}.pdf")
+        merger.close()
+    merger = PdfFileMerger()
+    for result in results_file:
+        merger.append(result)
+    merger.write('results.pdf')
+    merger.close()
+
 if __name__ == '__main__':
-    orders = get_all_orders(status=2)
+    orders = get_all_orders(status=1)
     # orders.sort(key=barcode_key_for_sorting)
     orders = sorted(orders, key=lambda x: x['barcode'])
     # print(orders[:10])
@@ -116,11 +153,11 @@ if __name__ == '__main__':
     print(len(orders))
     barcodes_and_ids = get_barcodes_and_ids(orders)
     print(barcodes_and_ids.keys())
-    with open('tmp.txt', 'w') as f:
-        print(orders_ids, file=f)
+    # with open('tmp.txt', 'w') as f:
+    #     print(orders_ids, file=f)
     with open('ids_and_barcode.txt', 'w') as f:
         for order in orders:
             print(order['orderId'], order['barcode'], file=f)
-        
-    # # create_pdf_stickers_by_ids(ids[:10])
-    create_pdf_stickers_by_ids(orders_ids)
+    # create_pdf_stickers_by_ids(orders_ids)
+    create_pdf_stickers_by_barcodes_and_ids(barcodes_and_ids)
+    print(len(barcodes_and_ids.keys()))
