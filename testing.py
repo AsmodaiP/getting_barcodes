@@ -108,26 +108,28 @@ def get_barcodes_with_orders_and_chartId(orders):
         id = order['orderId']
         chrt_id = order['chrtId']
         if barcode not in barcodes_and_ids.keys():
-            barcodes_and_ids[barcode] = {'orders': [id], 'chrtId':chrt_id}
+            barcodes_and_ids[barcode] = {'orders': [id], 'chrtId': chrt_id}
         else:
             barcodes_and_ids[barcode]['orders'] += [id]
     return barcodes_and_ids
 
+
 def edit_blank_pdf(barkode_info):
-    canvas = Canvas('pdf/blank.pdf',pagesize=(1.6*inch,  1.2*inch))
+    canvas = Canvas('pdf/blank.pdf', pagesize=(1.6*inch,  1.2*inch))
     font_size = 8
     canvas.setFont('FreeSans', font_size)
-    n=0
-    slice=27
-    while len(barkode_info['name'])>0:
-        canvas.drawString(2, 75-n*font_size, barkode_info['name'][:slice], charSpace=0)
+    n = 0
+    slice = 27
+    while len(barkode_info['name']) > 0:
+        canvas.drawString(2, 75-n*font_size,
+                          barkode_info['name'][:slice], charSpace=0)
         barkode_info['name'] = barkode_info['name'][slice:]
         print(barkode_info['name'])
-        n+= 1
-    canvas.drawString(2,75-font_size*n, barkode_info['article'])
+        n += 1
+    canvas.drawString(2, 75-font_size*n, barkode_info['article'])
     n += 1
-    canvas.drawString(2,75-font_size*n, barkode_info['chrtId'])
-    canvas.save()   
+    canvas.drawString(2, 75-font_size*n, barkode_info['chrtId'])
+    canvas.save()
 
 
 def create_pdf_stickers_by_barcodes(barcodes_and_ids):
@@ -203,8 +205,10 @@ def getting_information_about_barcode_by_chartId(chrtId):
 
 def add_information_about_barcodes(barcodes):
     for barcode in barcodes.keys():
-        barcodes[barcode]['info'] = getting_information_about_barcode_by_chartId(barcodes[barcode]['chrtId'])
+        barcodes[barcode]['info'] = getting_information_about_barcode_by_chartId(
+            barcodes[barcode]['chrtId'])
     return barcodes
+
 
 def create_stickers():
     orders = get_all_orders(status=1)
@@ -212,6 +216,7 @@ def create_stickers():
     barcodes = get_barcodes_with_orders_and_chartId(orders)
     barcodes = add_information_about_barcodes(barcodes)
     create_pdf_stickers_by_barcodes(barcodes)
+
 
 if __name__ == '__main__':
     # canvas = Canvas('pdf/blank.pdf',pagesize=(113.4,  85.17))
@@ -223,4 +228,4 @@ if __name__ == '__main__':
         'chrtId': str(8156990)
     }
     edit_blank_pdf(info)
-    # canvas.save()   
+    # canvas.save()
