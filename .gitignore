@@ -2,3 +2,6 @@
 *.pdf
 .env
 /venv
+/logs
+/pdf
+*.xlsx
