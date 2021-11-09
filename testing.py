@@ -1,4 +1,5 @@
 import datetime
+from enum import IntFlag
 import json
 from math import e
 import re
@@ -333,7 +334,6 @@ def getting_information_about_barcode_by_chartId(chrtId):
             size = data['params'][0]['value']
         if data['type'] == 'Доп. цвета':
             extra_colors = data['params'][0]['value']
-
     info = {
         'name': name,
         'article': article,
@@ -354,22 +354,44 @@ def add_information_about_barcodes(barcodes):
 
 def create_db_for_checking(barcodes):
     barcodes_and_stickers = {}
+    logging.info('Получение расшифрованных стикеров')
     for barcode in barcodes.keys():
-        stickers_encoded = []
+        logging.info(f'Получение расшифрованных стикеров для {barcode}')
+        barcodes_and_stickers[barcode]={}
+        arcticle = barcodes[barcode]['info']['article']
         for order in barcodes[barcode]['orders']:
-            stickers_encoded += [get_StickerEncoded_by_orderId(order)]
-        barcodes_and_stickers[barcode] = stickers_encoded
+            sticker_encoded = [get_StickerEncoded_by_orderId(order)]
+            barcodes_and_stickers[barcode][order]= {
+                'sticker_encoded': sticker_encoded,
+                'article': arcticle
+            }
 
     book = openpyxl.Workbook()
     sheet = book.active
-    sheet['A1'] = 'Barcode'
-    sheet['B1'] = 'Sticker'
+    sheet['A1'] = 'Номер заказа'
+    sheet['B1'] = 'Артикул'
+    sheet['C1'] = 'Barcode'
+    sheet['D1'] = 'Sticker'
     row = 2
+    logging.info('Формирование xlsx файла')
     for barcode in barcodes_and_stickers.keys():
-        for order in barcodes_and_stickers[barcode]:
-            sheet[row][0].value = str(barcode)
-            sheet[row][1].value = order
-            row += 1
+        barcode_info = barcodes_and_stickers[barcode]
+        for order in barcode_info.keys():
+            info = barcode_info[order]
+            article = info['article']
+            sticker_encoded = info['sticker_encoded']
+            sheet[row][0].value = str(order)
+            sheet[row][1].value = str(article)
+            sheet[row][2].value = str(barcode)
+            sheet[row][3].value = ''.join(sticker_encoded)
+            row += 1           
+        # article = barcodes_and_stickers[barcode]['article']
+        # for order in barcodes_and_stickers[barcode]['orders']:
+        #     sheet[row][0].value - str(order)
+        #     sheet[row][1].value = str(article)
+        #     sheet[row][2].value = str(barcode)
+        #     sheet[row][3].value = order
+        #     row += 1
     book.save('db_for_checking.xlsx')
     book.close()
 
