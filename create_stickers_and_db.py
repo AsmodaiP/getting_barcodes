@@ -1,5 +1,4 @@
 import datetime
-from enum import IntFlag
 import json
 import pytz
 import requests
@@ -14,7 +13,6 @@ from reportlab.lib.units import inch
 import logging
 from logging.handlers import RotatingFileHandler
 import openpyxl
-from requests.api import request
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -97,7 +95,7 @@ def create_pdf_stickers_by_ids(ids):
 
 
 def get_all_orders(status=0, date_end=get_now_time()):
-    logging.info('Получение всех заказов')
+    logging.info(f'Получение всех заказов со статусом {status}')
     date_start = '2021-11-06T00:47:17.528082+00:00'
     orders = []
     params = {
@@ -124,7 +122,7 @@ def get_all_orders(status=0, date_end=get_now_time()):
             params=params)
         orders_from_current_response = response.json()['orders']
         orders += orders_from_current_response
-        logging.info(f'+{len(orders_from_current_response)}')
+        logging.info(f'{len(orders)}')
     logging.info(f'Получено {len(orders)}')
     return orders
 
@@ -164,6 +162,7 @@ def edit_blank_pdf(barcode_info):
     n = 0
     blanks_number = 1
     slice = 23
+    name_of_host = NAME
     name = barcode_info['name']
     size = barcode_info['size']
     article = f'article = {barcode_info["article"]}'
@@ -172,7 +171,7 @@ def edit_blank_pdf(barcode_info):
     count = 'Количество = ' + str(barcode_info['count'])
     chrtId = f'chrtId = {barcode_info["chrtId"]}'
     blanks = ['pdf/blank1.pdf']
-    for params in [count, name, size, color, extra_colors, article, chrtId]:
+    for params in (count,name_of_host, name, size, color, extra_colors, article, chrtId):
         a = str(params)
         while len(a) > 0:
             if n > 8:
@@ -455,124 +454,88 @@ def set_status_to_orders(status, orders):
         response = requests.put(url_for_set_status, headers=headers, data=js)
         logging.info(response.content)
 
-# def get_all_orders_by_status_and_articul(status, articul,date_end=get_now_time()):
-#     logging.info(f'Получение заказов с статусом {status} и артикулом {articul}')
-#     date_start = '2021-11-06T00:47:17.528082+00:00'
-#     orders = []
-#     params = {
-#         'date_end': date_end,
-#         'date_start': date_start,
-#         'status': status,
-#         'take': 100,
-#         'skip': 0
-#     }
-#     response = requests.get(
-#         base_url_for_getting_orders,
-#         headers=headers,
-#         params=params)
-#     try:
-#         orders_from_current_response = response.json()['orders']
-#     except KeyError as e:
-#         logging.error(e, exc_info=True)
-#     orders += orders_from_current_response
-#     while orders_from_current_response != []:
-#         params['skip'] += len(orders_from_current_response)
-#         response = requests.get(
-#             base_url_for_getting_orders,
-#             headers=headers,
-#             params=params)
-#         orders_from_current_response = response.json()['orders']
-#         orders += orders_from_current_response
-#         logging.info(f'+{len(orders_from_current_response)}')
-#     logging.info(f'Получено {len(orders)}')
-#     return orders
+def get_barcodes_with_full_info(orders):
+    barcodes = get_barcodes_with_orders_and_chartId(orders)
+    barcodes = add_information_about_barcodes_and_len(barcodes)
+    barcodes = sorted_barcodes_by_count_of_orders(barcodes)
+    return barcodes
+
 
 def create_stickers():
     orders = get_all_orders(status=1)
     # orders = check_and_delete_orders_with_blank_officeAddress(orders)
     orders = sorted(orders, key=lambda x: x['barcode'])
-    barcodes = get_barcodes_with_orders_and_chartId(orders)
-    barcodes = add_information_about_barcodes_and_len(barcodes)
+    barcodes = get_barcodes_with_full_info(orders)
     create_pdf_stickers_by_barcodes(barcodes)
     create_db_for_checking(barcodes)
 
-# def filter_orders_by_barcode(orders, barcode):
-#     for order in orders:
-#         if order['barcode'] != barcode:
-#             orders.del(order)
+def filter_orders_by_barcode(orders, barcode):
+    filtered_barcodes = []
+    for order in orders:
+        if order['barcode'] == barcode:
+            filtered_barcodes += [order]
+    logging.info(f'Получено {len(filtered_barcodes)} заказов с баркодом = {barcode}')
+    return filtered_barcodes
+
+
+def sorted_barcodes_by_count_of_orders(barcodes):
+    sorted_tuples = sorted(barcodes.items(), key=lambda x: len(x[1]['orders']), reverse=True)
+    sorted_dict = {k: v for k, v in sorted_tuples}
+    return sorted_dict
 
 def set_status_collected_for_all_on_assembly():
     orders = get_all_orders(status=1)
     set_status_to_orders(2, orders)
     logging.info(f'{len(orders)} заказов переведены в собранные')
 
-if __name__ == '__main__':
-    # orders = get_all_orders(status=1)
-    # orders = filter_orders_by_barcode(orders, "2000790297008")
-    # print(orders)
-    create_stickers()
-    # set_status_collected_for_all_on_assembly()
-    # orders = get_all_orders(status=1)
+def sorted_by_barcode_set_status_on_assembly(barcode, limit):
+    orders_with_status_1 = get_all_orders(status=1)
+    if get_all_orders(status=1) != []:
+        logging.info(f'На сборке находится {len(orders_with_status_1)} товаров со статусом "На сборке"')
+        print(f"Нажмите enter, чтобы продолжить и добавить{limit-len(orders_with_status_1)} товаров")
+        approve = input()
+        limit = limit-len(orders_with_status_1)
+        return 0
+    orders = get_all_orders(status=0)
+    orders = filter_orders_by_barcode(orders, barcode)[:limit]
+    set_status_to_orders(1, orders)
 
-    # set_status_to_orders(2, orders)
-    # for order in orders:
-    #     print(order['orderId'])
-    # info = {
-    #     'name': 'тестовое имя',
-    #     'article': 'какой-то там артикул',
-    #     'chrtId': 'chrid',
-    #     'size': 'размер',
-    #     'color': 'цвет',
-    #     'extra_colors': 'экстра цвет',
-    #     'count': 33
-    # }
-    # edit_blank_pdf(info)
-    # orders = get_all_orders(status=1)
-#     orders = [
-#     {
-#       "orderId": 13833711,
-#       "dateCreated": "2021-02-20T16:50:33.365+03:00",
-#       "wbWhId": 119408,
-#       "storeId": 658434,
-#       "pid": 0,
-#       "officeAddress": "г Ставрополь (Ставропольский край), Ленина 482/1",
-#       "OfficeLatitude": 45.038605,
-#       "OfficeLongitude": 41.905666,
-#       "deliveryAddress": "улица, дом, квартира",
-#       "deliveryAddressDetails": {
-#         "province": "Челябинская область",
-#         "area": "Челябинск",
-#         "city": "Челябинск",
-#         "street": "51-я улица Арабкира",
-#         "home": "10А",
-#         "flat": "42",
-#         "entrance": "3",
-#         "longitude": 44.519068,
-#         "latitude": 40.20192
-#       },
-#       "userInfo": {
-#         "userId": 123,
-#         "fio": "Иванов Иван Иванович",
-#         "phone": 79991112233
-#       },
-#       "chrtId": 11111111,
-#       "barcode": 6665956397512,
-#       "barcodes": [
-#         6665956397512
-#       ],
-#       "status": 2,
-#       "userStatus": 2,
-#       "rid": 100321840623,
-#       "totalPrice": 5600,
-#       "orderUID": "string",
-#       "deliveryType": 1
-#     }
-#   ]
-#     # orders = check_and_delete_orders_with_blank_officeAddress(orders)
-#     # orders = sorted(orders, key=lambda x: x['barcode'])
-#     barcodes = get_barcodes_with_orders_and_chartId(orders)
-#     barcodes = add_information_about_barcodes_and_len(barcodes)
-#     print(barcodes)
-    # get_card_by_chrtId('17290060')
-    # card = get_card_by_nmid(17290060)
-    # print(card)
+def create_stickers_by_id(ids):
+    date_end=get_now_time()
+    orders = []
+    for id in ids:
+        date_start = '2021-11-06T00:47:17.528082+00:00'
+        
+        params = {
+            'date_end': date_end,
+            'date_start': date_start,
+            'status': 2,
+            'take': 100,
+            'skip': 0,
+            'id': id
+        }
+        response = requests.get(
+            base_url_for_getting_orders,
+            headers=headers,
+            params=params)
+        try:
+            orders_from_current_response = response.json()['orders']
+        except KeyError as e:
+            logging.error(e, exc_info=True)
+            print(id)
+        orders += orders_from_current_response
+        logging.info(f'Получено {len(orders)}')
+    orders = sorted(orders, key=lambda x: x['barcode'])
+    barcodes = get_barcodes_with_full_info(orders)
+    create_pdf_stickers_by_barcodes(barcodes)
+    create_db_for_checking(barcodes)
+
+if __name__ == '__main__':
+    # set_status_collected_for_all_on_assembly()
+    # orders = get_all_orders(status=0)
+
+    # orders = filter_orders_by_barcode(orders, '2000790297008')
+    # print(len(orders))
+    # barcodes = get_barcodes_with_full_info(orders)
+    # print(barcodes)
+    create_stickers()
