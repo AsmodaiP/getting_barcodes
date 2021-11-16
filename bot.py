@@ -1,13 +1,14 @@
+import re
 import telegram
 import os
 import sys
 from dotenv import load_dotenv
 import logging
 from logging.handlers import RotatingFileHandler
-from telegram.ext import Updater 
-from telegram.ext import CommandHandler
-from create_stickers_and_db import create_stickers, set_status_collected_for_all_on_assembly
-
+from telegram.ext import Updater
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
+from create_stickers_and_db import create_stickers, set_status_collected_for_all_on_assembly, get_list_of_relative_path_to_all_today_results, get_list_of_relative_path_to_all_logs
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton
 
 load_dotenv()
 
@@ -38,45 +39,92 @@ except KeyError as e:
 
 bot = telegram.Bot(token=TELEGRAM_TOKEN)
 
-whitelistid = (1617188356,1126541068, 482957060, 172902983)
+whitelistid = (1617188356, 1126541068, 482957060, 172902983)
+
 
 def send_message(message):
     bot.send_message(CHAT_ID, message)
 
+
 def send_results(id):
-     bot.send_document(id,document=open('results.pdf', 'rb') )
+    bot.send_document(id, document=open('results.pdf', 'rb'))
+
 
 def start(message, update):
     id = message['message']['chat']['id']
     if id in whitelistid:
         bot.send_message(id, 'Здравствуйте')
 
+
 def get_results(message, update):
-   id = message['message']['chat']['id']
-   if id in whitelistid:
-    send_results(id)
+    id = message['message']['chat']['id']
+    if id in whitelistid:
+        send_results(id)
+
+def send_db(id):
+    bot.send_document(id, document=open('db.xlsx'))
 
 def create_stickers_by_bot(message, update):
     id = message['message']['chat']['id']
     if id in whitelistid:
         bot.send_message(id, 'Начато создание стикеров')
-        create_stickers()
-        bot.send_message(id, 'Стикеры созданы')
+        count_of_orders = create_stickers()
+        if count_of_orders == 0:
+            bot.send_message(id, 'На сборке 0 заказов, создавать нечего')
+            return 0
+        bot.send_message(id, f'Стикеры созданы, количество {count_of_orders}')
         send_results(id)
+        send_db(id)
+
 
 def set_status_collected_for_all_on_assembly_by_bot(message, update):
     id = message['message']['chat']['id']
     if id in whitelistid:
         set_status_collected_for_all_on_assembly()
-        bot.send_message(id,'Все товары переведены в "Собрано"')
+        bot.send_message(id, 'Все товары переведены в "Собрано"')
 
+
+def send_all_today_results(id):
+    results = get_list_of_relative_path_to_all_today_results()
+    if len(results) == 0:
+        bot.send_message(id,'Сегодня стикеры еще не создавались')
+        return 0
+    for result in results:
+        bot.send_document(id, document=open(result, 'rb'))
+
+
+def get_all_today_results(message, update):
+    id = message['message']['chat']['id']
+    if id in whitelistid:
+        send_all_today_results(id)
+
+def send_all_logs(id):
+    logs = get_list_of_relative_path_to_all_logs()
+    for log in logs: 
+        bot.send_document(id,document=open(log, 'rb'))
+
+def get_logs(message, update):
+    id = message['message']['chat']['id']
+    if id in whitelistid:
+        send_all_logs(id)
 
 updater = Updater(token=TELEGRAM_TOKEN)
 
 start_handler = CommandHandler('start', start)
 updater.dispatcher.add_handler(start_handler)
+
 get_results_handler = CommandHandler('get_results', get_results)
 updater.dispatcher.add_handler(get_results_handler)
-create_results_handler =  CommandHandler('create_stickers', create_stickers_by_bot)
+
+get_all_today_results_handler = CommandHandler(
+    'get_all_today_results', get_all_today_results)
+updater.dispatcher.add_handler(get_all_today_results_handler)
+
+get_logs_handler = CommandHandler('get_logs', get_logs)
+updater.dispatcher.add_handler(get_logs_handler)
+
+create_results_handler = CommandHandler(
+    'create_stickers', create_stickers_by_bot)
 updater.dispatcher.add_handler(create_results_handler)
+
 updater.start_polling()
