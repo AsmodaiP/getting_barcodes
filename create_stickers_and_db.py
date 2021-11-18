@@ -1,5 +1,6 @@
 import datetime
 import json
+from sys import path
 import pytz
 import requests
 import shutil
@@ -52,7 +53,6 @@ def create_path_if_not_exist(path):
 
 def get_now_time():
     d = datetime.datetime.utcnow()
-    # return d.isoformat
     d_with_timezone = d.replace(tzinfo=pytz.UTC)
     return(d_with_timezone.isoformat())
 
@@ -68,17 +68,26 @@ cred = json.load(open('credentials.json', 'rb'))
 TOKEN = cred['БелотеловАГ']['token']
 NAME = cred['БелотеловАГ']['name']
 
-pdf_path = os.path.join(BASE_DIR, 'pdf/')
-create_path_if_not_exist(pdf_path)
-TODAY_PREFIX_PATH = os.path.join(
-    pdf_path, datetime.datetime.today().strftime('%Y_%m_%d'))
-create_path_if_not_exist(TODAY_PREFIX_PATH)
-TODAY_PATH_WITH_NAME = os.path.join(TODAY_PREFIX_PATH, NAME)
-create_path_if_not_exist(TODAY_PATH_WITH_NAME)
-BACKUP_DIR = os.path.join(TODAY_PATH_WITH_NAME, 'results/')
-JSON_DIR = os.path.join(TODAY_PATH_WITH_NAME, 'json/')
-create_path_if_not_exist(BACKUP_DIR)
-create_path_if_not_exist(JSON_DIR)
+def create_all_today_path():
+    pdf_path = os.path.join(BASE_DIR, 'pdf/')
+    create_path_if_not_exist(pdf_path)
+    today_prefix_path = os.path.join(
+        pdf_path, datetime.datetime.today().strftime('%Y_%m_%d'))
+    create_path_if_not_exist(today_prefix_path)
+    today_path_with_name = os.path.join(today_prefix_path, NAME)
+    create_path_if_not_exist(today_path_with_name)
+    backup_dir = os.path.join(today_path_with_name, 'results/')
+    json_dir = os.path.join(today_path_with_name, 'json/')
+    create_path_if_not_exist(backup_dir)
+    create_path_if_not_exist(json_dir)
+    return {
+        'backup_dir': backup_dir,
+        'json_dir': json_dir,
+        'today_prefix_path': today_prefix_path,
+        'today_path_with_name':today_path_with_name
+    }
+
+
 
 
 MEDIUM_BORDER = Border(left=Side(style='medium'),
@@ -105,7 +114,8 @@ def create_pdf_stickers_by_ids(ids):
             headers=headers)
         data_for_pdf = response.json()['data']['file']
         file_data = bytes(data_for_pdf, 'utf-8')
-        path = os.path.join(TODAY_PATH_WITH_NAME, f'{id}.pdf')
+        today_path_with_name = create_all_today_path()['today_path_with_name']
+        path = os.path.join(today_path_with_name, f'{id}.pdf')
         with open(path, 'wb') as f:
             f.write(codecs.decode(file_data, 'base64'))
         pdfs += [path]
@@ -253,7 +263,8 @@ def create_and_merge_pdf_by_barcodes_and_ids(barcodes_and_ids):
                 headers=headers)
             data_for_pdf = response.json()['data']['file']
             file_data = bytes(data_for_pdf, 'utf-8')
-            path = os.path.join(TODAY_PATH_WITH_NAME, f'{id}.pdf')
+            today_path_with_name = create_all_today_path['today_path_with_name']
+            path = os.path.join(today_path_with_name, f'{id}.pdf')
             with open(path, 'wb') as f:
                 f.write(codecs.decode(file_data, 'base64'))
             pdfs += [path]
@@ -261,7 +272,7 @@ def create_and_merge_pdf_by_barcodes_and_ids(barcodes_and_ids):
         for pdf in pdfs:
             merger.append(pdf)
         path_for_result_of_barcode = os.path.join(
-            TODAY_PATH_WITH_NAME, f'result_{barcode}.pdf')
+            today_path_with_name, f'result_{barcode}.pdf')
         merger.write(path_for_result_of_barcode)
         results_files.append(path_for_result_of_barcode)
         merger.close()
@@ -513,8 +524,7 @@ def create_stickers():
         json.dump(barcodes, f,ensure_ascii=False)
     add_json_file_to_today_json('barcodes.json')
     create_pdf_stickers_by_barcodes(barcodes)
-    create_db_for_checking(barcodes)
-    return len(orders)
+    return (len(orders), barcodes)
 
 
 def filter_orders_by_barcode(orders, barcode):
@@ -590,26 +600,30 @@ def get_start_and_end_of_current_day():
     return (start.replace(tzinfo=pytz.UTC).isoformat(), end.replace(tzinfo=pytz.UTC).isoformat())
 
 def add_json_file_to_today_json(path_to_json_file):
+    json_dir = create_all_today_path['json_dir']
     filename = 'barcodes_%s.json' % datetime.datetime.now().strftime('%H%M')
-    path_to_backup_file = os.path.join(JSON_DIR, filename)
+    path_to_backup_file = os.path.join(json_dir, filename)
     shutil.copyfile(path_to_json_file, path_to_backup_file)
 
 def add_results_file_to_today_backup(path_to_results_file):
+    backup_dir = create_all_today_path['backup_dir']
     filename = 'results_%s.pdf' % datetime.datetime.now().strftime('%H%M')
-    path_to_backup_file = os.path.join(BACKUP_DIR, filename)
+    path_to_backup_file = os.path.join(backup_dir, filename)
     shutil.copyfile(path_to_results_file, path_to_backup_file)
 
 
 def get_list_of_relative_path_to_all_today_results():
     list_of_files = []
-    for root, directories, file in os.walk(BACKUP_DIR):
+    backup_dir = create_all_today_path['backup_dir']
+    for root, directories, file in os.walk(backup_dir):
         for file in file:
             list_of_files.append(os.path.relpath((os.path.join(root, file))))
     return list_of_files
 
 def get_list_of_relative_path_to_all_today_json():
     list_of_files = []
-    for root, directories, file in os.walk(JSON_DIR):
+    json_dir = create_all_today_path['json_dir']
+    for root, directories, file in os.walk(json_dir):
         for file in file:
             list_of_files.append(os.path.relpath((os.path.join(root, file))))
     return list_of_files
@@ -648,6 +662,10 @@ def get_today_article_and_count():
 def create_finall_table_of_day():
     logging.info('Получение артикулов и количества заказов для них')
     article_and_count = get_today_article_and_count()
+    json_dir = create_all_today_path['json_dir']
+    path_for_saving_aricle_and_count_dict = os.path.join(json_dir,'result_fbs.json')
+    with open(path_for_saving_aricle_and_count_dict, 'w') as f:
+        json.dump(article_and_count, f)
     book = openpyxl.Workbook()
     sheet = book.active
     sheet['A1'] = 'Артикул'
@@ -671,7 +689,8 @@ def create_finall_table_of_day():
     cell = sheet.cell(row=row, column=2)
     cell.value = f'=SUM(B2:B{row-1})'
     cell.border = MEDIUM_BORDER
-    file_path = os.path.join(TODAY_PATH_WITH_NAME, 'final_bd.xlsx')
+    today_path_with_name = create_all_today_path['today_path_with_name']
+    file_path = os.path.join(today_path_with_name, 'final_bd.xlsx')
     book.save(file_path)
     book.close()
     return file_path
@@ -692,7 +711,6 @@ def get_orderId_and_sticker_encoded(ids):
     return order_and_sticker_encoded
     # return response.json()['data'][0]['sticker']['wbStickerEncoded']
 
-
 if __name__ == '__main__':
+    create_all_today_path()
     create_stickers()
-    # create_finall_table_of_day()

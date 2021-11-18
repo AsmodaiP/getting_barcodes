@@ -83,12 +83,13 @@ def create_stickers_by_bot(message, update):
     id = message['message']['chat']['id']
     if id in whitelistid:
         bot.send_message(id, 'Начато создание стикеров')
-        count_of_orders = create_stickers()
+        count_of_orders, barcodes = create_stickers()
         if count_of_orders == 0:
             bot.send_message(id, 'На сборке 0 заказов, создавать нечего')
             return 0
         bot.send_message(id, f'Стикеры созданы, количество {count_of_orders}')
         send_results(id)
+        create_stickers_and_db.create_db_for_checking(barcodes)
         send_db(id)
 
 
