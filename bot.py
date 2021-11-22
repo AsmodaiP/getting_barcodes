@@ -11,6 +11,7 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
 import create_stickers_and_db
 from create_stickers_and_db import create_path_if_not_exist, create_stickers, set_status_collected_for_all_on_assembly, get_list_of_relative_path_to_all_today_results, get_list_of_relative_path_to_all_logs, NAME
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton
+from fbs import update_table
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 log_file = os.path.join(BASE_DIR, 'bot.log')
@@ -33,6 +34,7 @@ logging.basicConfig(
 try:
     TELEGRAM_TOKEN = os.environ['TELEGRAM_TOKEN']
     CHAT_ID = os.environ['TELEGRAM_CHAT_ID']
+    ID_FOR_NOTIFICATION = os.getenv('ID_FOR_NOTIFICATION', 295481377)
 except KeyError as e:
     logging.error(e, exc_info=True)
     sys.exit('Не удалось получить переменные окружения')
@@ -42,6 +44,7 @@ except KeyError as e:
 bot = telegram.Bot(token=TELEGRAM_TOKEN)
 
 whitelistid = (1617188356, 1126541068, 482957060, 172902983)
+
 
 
 def send_message(message):
@@ -55,7 +58,7 @@ def send_results(id):
 def start(message, update):
     id = message['message']['chat']['id']
     if id in whitelistid:
-        bot.send_message(id, 'Здравствуйте')
+        bot.send_message(id, 'Здравствуйте', parse_mode="Markdown")
 
 
 def get_results(message, update):
@@ -68,18 +71,6 @@ def send_db(id):
 
 def create_stickers_by_bot(message, update):
 
-    pdf_path = os.path.join(BASE_DIR, 'pdf/')
-    create_path_if_not_exist(pdf_path)
-    TODAY_PREFIX_PATH = os.path.join(
-        pdf_path, datetime.datetime.today().strftime('%Y_%m_%d'))
-    create_path_if_not_exist(TODAY_PREFIX_PATH)
-    TODAY_PATH_WITH_NAME = os.path.join(TODAY_PREFIX_PATH, NAME)
-    create_path_if_not_exist(TODAY_PATH_WITH_NAME)
-    BACKUP_DIR = os.path.join(TODAY_PATH_WITH_NAME, 'results/')
-    JSON_DIR = os.path.join(TODAY_PATH_WITH_NAME, 'json/')
-    create_path_if_not_exist(BACKUP_DIR)
-    create_path_if_not_exist(JSON_DIR)
-
     id = message['message']['chat']['id']
     if id in whitelistid:
         bot.send_message(id, 'Начато создание стикеров')
@@ -91,6 +82,10 @@ def create_stickers_by_bot(message, update):
         send_results(id)
         create_stickers_and_db.create_db_for_checking(barcodes)
         send_db(id)
+        bot.send_message(ID_FOR_NOTIFICATION, f'Пользователь [{id}](tg://user?id={id}) получил стикеры, {count_of_orders}', parse_mode = 'Markdown')
+        send_results(ID_FOR_NOTIFICATION)
+        send_db(ID_FOR_NOTIFICATION)
+
 
 
 def set_status_collected_for_all_on_assembly_by_bot(message, update):
@@ -134,6 +129,22 @@ def send_finall_db(message, update):
         file = create_stickers_and_db.create_finall_table_of_day()
         bot.send_document(id, document=open(file, 'rb'))
 
+def put_all_on_collected(message, update):
+    id = message['message']['chat']['id']
+    if id in whitelistid:
+        orders_count = create_stickers_and_db.set_status_collected_for_all_on_assembly()
+        if orders_count == 0:
+            bot.send_message(id, 'На сборке ноль заказов, переводить в собранные нечего')
+        bot.send_message(id, f'{orders_count} заказов переведено в собранные')
+        bot.send_message(ID_FOR_NOTIFICATION, f'Пользователь [{id}](tg://user?id={id}) перевел в собранные {orders_count} заказов', parse_mode = 'Markdown')
+
+def force_update_table(message, update):
+    id = message['message']['chat']['id']
+    if id in whitelistid:
+        result = update_table()
+        bot.send_message(ID_FOR_NOTIFICATION, result)
+        bot.send_message(id, result)
+
 updater = Updater(token=TELEGRAM_TOKEN)
 
 start_handler = CommandHandler('start', start)
@@ -141,6 +152,12 @@ updater.dispatcher.add_handler(start_handler)
 
 get_results_handler = CommandHandler('get_results', get_results)
 updater.dispatcher.add_handler(get_results_handler)
+
+put_all_on_collected_handler = CommandHandler('put_all_on_collected', put_all_on_collected)
+updater.dispatcher.add_handler(put_all_on_collected_handler)
+
+force_update_table_handler = CommandHandler('update_table', force_update_table)
+updater.dispatcher.add_handler(force_update_table_handler)
 
 get_all_today_results_handler = CommandHandler(
     'get_all_today_results', get_all_today_results)

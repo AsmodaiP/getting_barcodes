@@ -144,6 +144,7 @@ def get_all_orders(status=0, date_end=get_now_time(), date_start='2021-11-06T00:
     try:
         orders_from_current_response = response.json()['orders']
     except KeyError as e:
+        orders_from_current_response = []
         logging.error(e, exc_info=True)
     orders += orders_from_current_response
     while orders_from_current_response != []:
@@ -263,7 +264,7 @@ def create_and_merge_pdf_by_barcodes_and_ids(barcodes_and_ids):
                 headers=headers)
             data_for_pdf = response.json()['data']['file']
             file_data = bytes(data_for_pdf, 'utf-8')
-            today_path_with_name = create_all_today_path['today_path_with_name']
+            today_path_with_name = create_all_today_path()['today_path_with_name']
             path = os.path.join(today_path_with_name, f'{id}.pdf')
             with open(path, 'wb') as f:
                 f.write(codecs.decode(file_data, 'base64'))
@@ -452,8 +453,6 @@ def create_db_for_checking(barcodes):
     book.create_sheet("Sheet2")
     book.active = 1
     sheet = book.active
-    # cell = sheet[2][8]
-    # cell.value = f'=sfgsfdgsfdgsdfgSUM(I2:I{row-1})'
     sheet['A1'] = 'Артикул'
     sheet['A1'].border = THIN_BORDER
     sheet['B1'] = 'Количество'
@@ -498,14 +497,13 @@ def set_status_to_orders(status, orders):
             "orderId": order["orderId"],
             "status": int(status)
         }]
-    for order in orders:
-        data_for_set_status = [{
-            "orderId": order["orderId"],
-            "status": int(status)
-        }]
-        js = json.dumps(data_for_set_status)
-        response = requests.put(url_for_set_status, headers=headers, data=js)
-        logging.info(response.content)
+    # for order in orders:
+    #     data_for_set_status = [{
+    #         "orderId": order["orderId"],
+    #         "status": int(status)
+    #     }]
+    js = json.dumps(data_for_bulk_set_status)
+    response = requests.put(url_for_set_status, headers=headers, data=js)
 
 
 def get_barcodes_with_full_info(orders):
@@ -518,7 +516,7 @@ def get_barcodes_with_full_info(orders):
 def create_stickers():
     orders = get_all_orders(status=1)
     if len(orders) == 0:
-        return 0
+        return (0,0)
     barcodes = get_barcodes_with_full_info(orders)
     with open('barcodes.json','w', encoding='utf-8') as f:
         json.dump(barcodes, f,ensure_ascii=False)
@@ -548,6 +546,7 @@ def set_status_collected_for_all_on_assembly():
     orders = get_all_orders(status=1)
     set_status_to_orders(2, orders)
     logging.info(f'{len(orders)} заказов переведены в собранные')
+    return len(orders)
 
 
 def sorted_by_barcode_set_status_on_assembly(barcode, limit):
@@ -600,13 +599,13 @@ def get_start_and_end_of_current_day():
     return (start.replace(tzinfo=pytz.UTC).isoformat(), end.replace(tzinfo=pytz.UTC).isoformat())
 
 def add_json_file_to_today_json(path_to_json_file):
-    json_dir = create_all_today_path['json_dir']
+    json_dir = create_all_today_path()['json_dir']
     filename = 'barcodes_%s.json' % datetime.datetime.now().strftime('%H%M')
     path_to_backup_file = os.path.join(json_dir, filename)
     shutil.copyfile(path_to_json_file, path_to_backup_file)
 
 def add_results_file_to_today_backup(path_to_results_file):
-    backup_dir = create_all_today_path['backup_dir']
+    backup_dir = create_all_today_path()['backup_dir']
     filename = 'results_%s.pdf' % datetime.datetime.now().strftime('%H%M')
     path_to_backup_file = os.path.join(backup_dir, filename)
     shutil.copyfile(path_to_results_file, path_to_backup_file)
@@ -614,7 +613,7 @@ def add_results_file_to_today_backup(path_to_results_file):
 
 def get_list_of_relative_path_to_all_today_results():
     list_of_files = []
-    backup_dir = create_all_today_path['backup_dir']
+    backup_dir = create_all_today_path()['backup_dir']
     for root, directories, file in os.walk(backup_dir):
         for file in file:
             list_of_files.append(os.path.relpath((os.path.join(root, file))))
@@ -622,10 +621,11 @@ def get_list_of_relative_path_to_all_today_results():
 
 def get_list_of_relative_path_to_all_today_json():
     list_of_files = []
-    json_dir = create_all_today_path['json_dir']
-    for root, directories, file in os.walk(json_dir):
-        for file in file:
-            list_of_files.append(os.path.relpath((os.path.join(root, file))))
+    json_dir = create_all_today_path()['json_dir']
+    for root, directories, files in os.walk(json_dir):
+        for file in files:
+            if file != 'result_fbs.json':
+                list_of_files.append(os.path.relpath((os.path.join(root, file))))
     return list_of_files
 
 def get_list_of_relative_path_to_all_logs():
@@ -634,15 +634,17 @@ def get_list_of_relative_path_to_all_logs():
         for file in file:
             list_of_files.append(os.path.relpath((os.path.join(root, file))))
     return list_of_files
+
+
 def get_dict_of_unique_orders_and_article():
     list_of_json = get_list_of_relative_path_to_all_today_json()
     order_and_article_dict = {}
     for json_path in list_of_json:
-        print(json_path)
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             for barcode in data.keys():
                 orders = data[barcode]['orders']
+                # print(orders)
                 for order in orders:
                     order_and_article_dict[order] = data[barcode]['info']['article']
     return order_and_article_dict
@@ -662,7 +664,7 @@ def get_today_article_and_count():
 def create_finall_table_of_day():
     logging.info('Получение артикулов и количества заказов для них')
     article_and_count = get_today_article_and_count()
-    json_dir = create_all_today_path['json_dir']
+    json_dir = create_all_today_path()['json_dir']
     path_for_saving_aricle_and_count_dict = os.path.join(json_dir,'result_fbs.json')
     with open(path_for_saving_aricle_and_count_dict, 'w') as f:
         json.dump(article_and_count, f)
@@ -689,7 +691,7 @@ def create_finall_table_of_day():
     cell = sheet.cell(row=row, column=2)
     cell.value = f'=SUM(B2:B{row-1})'
     cell.border = MEDIUM_BORDER
-    today_path_with_name = create_all_today_path['today_path_with_name']
+    today_path_with_name = create_all_today_path()['today_path_with_name']
     file_path = os.path.join(today_path_with_name, 'final_bd.xlsx')
     book.save(file_path)
     book.close()
@@ -709,8 +711,13 @@ def get_orderId_and_sticker_encoded(ids):
         order_and_sticker_encoded[order['orderId']
                                   ] = order['sticker']['wbStickerEncoded']
     return order_and_sticker_encoded
-    # return response.json()['data'][0]['sticker']['wbStickerEncoded']
 
 if __name__ == '__main__':
-    create_all_today_path()
-    create_stickers()
+    # set_status_collected_for_all_on_assembly()
+    # create_all_today_path()
+    # create_stickers()
+    create_finall_table_of_day()
+    # get_dict_of_unique_orders_and_article()
+
+
+
