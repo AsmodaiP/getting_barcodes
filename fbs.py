@@ -41,14 +41,16 @@ def get_data_about_articles():
 
 def get_count_or_0(data, article):
     if article in data.keys():
-        return data[article]
+        count = data[article]
+        del data[article]
+        return count
     else:
         return 0
 
 def update_table():
     if SPREADSHEET_ID is None:
         return 'SPREADSHEET_ID не задано'
-    position_for_place = START_POSITION_FOR_PLACE + (dt.date.today().day-1)*6
+    position_for_place = START_POSITION_FOR_PLACE + (dt.date.today().day-2)*6
     data = get_data_about_articles()
     service = build('sheets', 'v4', credentials=credentials)
     sheet = service.spreadsheets()
@@ -60,22 +62,25 @@ def update_table():
     if not values:
         print('No data found.')
     else:
+        body_data = []
         for row in values[2:]:
-            article = row[6]
-
+            article = row[6].strip().upper()
             count = get_count_or_0(data, article)
             logging.info(f'Для {article} получено количество продаж {count}')
             letter_for_range = convert_to_column_letter(position_for_place)
-            body = {
-                'valueInputOption': 'USER_ENTERED',
-                'data': [{'range': f'{letter_for_range}{i}',
-                         'values': [[count]]},
-                ]
-            }
-            sheet.values().batchUpdate(spreadsheetId=SPREADSHEET_ID, body=body).execute()
+            body_data += [{'range': f'{letter_for_range}{i}',  'values': [[count]]}]
+
+            
             i += 1
-            result += f'{article} — {count}\n'
-    return result
+            if count != 0:
+                result += f'{article} — {count}\n'
+        body = {
+            'valueInputOption': 'USER_ENTERED',
+            'data':body_data
+        }
+        sheet.values().batchUpdate(spreadsheetId=SPREADSHEET_ID, body=body).execute()
+        print(data)
+    return {'result':result, 'erors': data.keys()}
 
 
 if __name__ == '__main__':

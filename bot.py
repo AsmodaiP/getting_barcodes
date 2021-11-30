@@ -1,16 +1,19 @@
 import re
+from requests.api import get
 import telegram
+import telebot
 import os
 import sys
 import datetime
 from dotenv import load_dotenv
 import logging
 from logging.handlers import RotatingFileHandler
-from telegram.ext import Updater
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
+from telegram.ext import Updater, messagehandler
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, ConversationHandler
 import create_stickers_and_db
-from create_stickers_and_db import create_path_if_not_exist, create_stickers, set_status_collected_for_all_on_assembly, get_list_of_relative_path_to_all_today_results, get_list_of_relative_path_to_all_logs, NAME
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton
+from create_stickers_and_db import create_path_if_not_exist, create_stickers, get_all_orders, set_status_collected_for_all_on_assembly, get_list_of_relative_path_to_all_today_results, get_list_of_relative_path_to_all_logs, NAME, set_status_to_orders
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
+from telegram.ext import Filters
 from fbs import update_table
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -34,7 +37,7 @@ logging.basicConfig(
 try:
     TELEGRAM_TOKEN = os.environ['TELEGRAM_TOKEN']
     CHAT_ID = os.environ['TELEGRAM_CHAT_ID']
-    ID_FOR_NOTIFICATION = os.getenv('ID_FOR_NOTIFICATION', 295481377)
+    ID_FOR_NOTIFICATION = os.getenv('ID_FOR_NOTIFICATION', [295481377]).split(',')
 except KeyError as e:
     logging.error(e, exc_info=True)
     sys.exit('Не удалось получить переменные окружения')
@@ -42,10 +45,21 @@ except KeyError as e:
 
 
 bot = telegram.Bot(token=TELEGRAM_TOKEN)
+bot_1= telegram.Bot(token=TELEGRAM_TOKEN)
+
+TEXT_TO_PUT_ON_COLLECTED = '❌❌Перевести всё в собранное❌❌'
+TEXT_TO_PUT_ON_ASSEMBLY_BY_ARTICLE = 'На сборку по артикулу'
+TEXT_TO_PUT_ON_ASSEMBLY_BY_COUNT = 'На сборку по количеству'
+TEXT_TO_CREATE_STICKERS = 'Создать стикеры'
+TEXT_UPDATE_TABLE = 'Обновить таблицу'
+TEXT_STATS = 'Статистика'
+TEXT_TOP = 'Топ артикулов по количеству'
 
 whitelistid = (1617188356, 1126541068, 482957060, 172902983)
 
-
+def send_notification(text):
+    for id in ID_FOR_NOTIFICATION:
+        bot.send_message(id, text, parse_mode = 'Markdown')
 
 def send_message(message):
     bot.send_message(CHAT_ID, message)
@@ -55,11 +69,26 @@ def send_results(id):
     bot.send_document(id, document=open('results.pdf', 'rb'))
 
 
-def start(message, update):
-    id = message['message']['chat']['id']
-    if id in whitelistid:
-        bot.send_message(id, 'Здравствуйте', parse_mode="Markdown")
+def start(update, _):
+    # user = update.message.from_user
+    main_menu_keyboard = (
+        [KeyboardButton(TEXT_TO_CREATE_STICKERS), KeyboardButton(TEXT_TOP)],
+        [KeyboardButton(TEXT_TO_PUT_ON_ASSEMBLY_BY_COUNT), KeyboardButton(TEXT_TO_PUT_ON_ASSEMBLY_BY_ARTICLE)],
+        [KeyboardButton(TEXT_TO_PUT_ON_COLLECTED)],
+        [KeyboardButton(TEXT_UPDATE_TABLE), KeyboardButton(TEXT_STATS)]
+    )
+    reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard,
+                                                   resize_keyboard=True,
+                                                   one_time_keyboard=False)
+    bot.send_message(chat_id=update.message.chat_id,
+                     text='Выберите действие',
+                     reply_markup=reply_kb_markup)
 
+def test(message, update):
+    id = message['message']['chat']['id']
+    if update.args:
+        orders = create_stickers_and_db.filter_orders_by_article(update.args)
+        bot.send_message(id, orders)
 
 def get_results(message, update):
     id = message['message']['chat']['id']
@@ -82,11 +111,25 @@ def create_stickers_by_bot(message, update):
         send_results(id)
         create_stickers_and_db.create_db_for_checking(barcodes)
         send_db(id)
-        bot.send_message(ID_FOR_NOTIFICATION, f'Пользователь [{id}](tg://user?id={id}) получил стикеры, {count_of_orders}', parse_mode = 'Markdown')
-        send_results(ID_FOR_NOTIFICATION)
-        send_db(ID_FOR_NOTIFICATION)
+        send_notification(f'Пользователь [{id}](tg://user?id={id}) получил стикеры, {count_of_orders}')
+        for id_for_not in ID_FOR_NOTIFICATION:
+            send_results(id_for_not)
+            send_db(id_for_not)
 
-
+def get_top_of_articles(message,update):
+    id = message['message']['chat']['id']
+    if id not in whitelistid:
+        return 0
+    msg=''
+    bot.send_message(id, 'Идет формирование топа')
+    try:
+        barcodes = create_stickers_and_db.get_barcodes_with_full_info(get_all_orders(0))
+        for barcode in barcodes.keys():
+            msg += f'{barcodes[barcode]["info"]["article"]} {barcodes[barcode]["info"]["count"]} \n'
+        bot.send_message(id,msg[:4096])
+    except Exception as e:
+        logging.error('Ошибка при получение топа', exc_info=e)
+        bot.send_message(id,'Что-то пошло не так, попробуйте еще раз')
 
 def set_status_collected_for_all_on_assembly_by_bot(message, update):
     id = message['message']['chat']['id']
@@ -135,17 +178,136 @@ def put_all_on_collected(message, update):
         orders_count = create_stickers_and_db.set_status_collected_for_all_on_assembly()
         if orders_count == 0:
             bot.send_message(id, 'На сборке ноль заказов, переводить в собранные нечего')
+            return 0
         bot.send_message(id, f'{orders_count} заказов переведено в собранные')
-        bot.send_message(ID_FOR_NOTIFICATION, f'Пользователь [{id}](tg://user?id={id}) перевел в собранные {orders_count} заказов', parse_mode = 'Markdown')
+        send_notification(f'Пользователь [{id}](tg://user?id={id}) перевел в собранные {orders_count} заказов')
 
 def force_update_table(message, update):
     id = message['message']['chat']['id']
     if id in whitelistid:
-        result = update_table()
-        bot.send_message(ID_FOR_NOTIFICATION, result)
-        bot.send_message(id, result)
+        result_and_errors = update_table()
+        result = result_and_errors['result']
+        errors = result_and_errors['erors']
+        str_errors = '\n'.join(errors)
+        if result != '':
+            send_notification(result)
+            send_notification(f'Что-то не так с артикулами \n{str_errors}')
+            bot.send_message(id, result)
+
+
 
 updater = Updater(token=TELEGRAM_TOKEN)
+
+def set_on_assembly_by_article(bot, update):
+    id = bot['message']['chat']['id']
+    if not id in whitelistid:
+        return 0
+    update.user_data['count'] = bot.message.text.strip()
+    try:
+        count = int(update.user_data['count'])
+    except:
+        bot.message.reply_text('Неверный формат числа, начните всё с начала')
+        return ConversationHandler.END
+    articles = update.user_data['articles']
+    orders  = create_stickers_and_db.filter_orders_by_article(articles,count)
+    create_stickers_and_db.set_status_to_orders_by_ids(1,orders)
+    orders_count = len(orders)
+
+    if orders_count == 0:
+        bot.message.reply_text('Таких артикулов нет в новых')
+        return ConversationHandler.END
+    bot.message.reply_text(f'{orders_count} переведено на сборку')
+    send_notification(f'Пользователь [{id}](tg://user?id={id}) перевел  на сборку {orders_count} заказов')
+    return ConversationHandler.END
+
+
+def get_articles_from_user(bot, update):
+    id = bot['message']['chat']['id']
+    if not id  in whitelistid:
+        return ConversationHandler.END
+    bot.message.reply_text('Введите нужные артикулы через пробел, для отмены введите /cancel')
+    return 'count'
+
+def get_count_from_user(bot, update):
+    id = bot['message']['chat']['id']
+    if not id in whitelistid:
+        return ConversationHandler.END
+    update.user_data['articles'] = bot.message.text.upper().split()
+    bot.message.reply_text('Введите масимальное число заказов для перевода, для отмены введите /cancel')
+    return 'set_on_assembly'
+
+def start_c(bot,update):
+    return 'article'
+
+def cancel(bot, update):
+    bot.message.reply_text('Операция отменена')
+    return ConversationHandler.END
+
+def set_on_assembly_by_count(bot,update):
+    id = bot['message']['chat']['id']
+    if not id in whitelistid:
+        return ConversationHandler.END
+    update.user_data['count'] = bot.message.text.strip()
+    
+    try:
+        count = int(update.user_data['count'])
+    except:
+        bot.message.reply_text('Неверный формат числа')
+        return ConversationHandler.END
+    orders = create_stickers_and_db.get_all_orders(status=0)[:count]
+    orders_ids = [order['orderId'] for order in orders ]
+    create_stickers_and_db.set_status_to_orders_by_ids(1, orders_ids)
+    bot.message.reply_text(f'{len(orders)} передано на сборку')
+    return ConversationHandler.END
+
+t= CommandHandler('test', test)
+updater.dispatcher.add_handler(t)
+
+set_on_assembly_by_article_handler = ConversationHandler(
+    entry_points=[MessageHandler(Filters.text([TEXT_TO_PUT_ON_ASSEMBLY_BY_ARTICLE]), get_articles_from_user)],
+    states ={
+         'article' : [MessageHandler(Filters.text, get_articles_from_user)],
+         'count': [MessageHandler(Filters.text & ~Filters.command, get_count_from_user)],
+         'set_on_assembly':[MessageHandler(Filters.text, set_on_assembly_by_article)]
+         },
+    fallbacks=[CommandHandler('cancel', cancel)])
+
+updater.dispatcher.add_handler(set_on_assembly_by_article_handler)
+
+set_on_assembly_by_count_handler =ConversationHandler(
+    entry_points= [MessageHandler(Filters.text(TEXT_TO_PUT_ON_ASSEMBLY_BY_COUNT), get_count_from_user )],
+    states= {
+        'set_on_assembly': [MessageHandler(Filters.text & ~Filters.command, set_on_assembly_by_count)]
+    },
+    fallbacks=[CommandHandler('cancel', cancel)])
+
+def get_stats(bot, update):
+    id = bot['message']['chat']['id']
+    if not id in whitelistid:
+        return ConversationHandler.END
+    new_orders = get_all_orders(status=0)
+    count_new = (len(new_orders))
+    _ , count_order_without_address  = create_stickers_and_db.check_and_delete_orders_with_blank_officeAddress(new_orders)
+    
+    orders_on_assembly = len(get_all_orders(status=1))
+    bot.message.reply_text(f'{count_new} — новых, из них без адреса — {count_order_without_address} \n{orders_on_assembly} — на сборке \n ')
+
+
+updater.dispatcher.add_handler(set_on_assembly_by_count_handler)
+create_stickers_menu_handler = MessageHandler(Filters.text([TEXT_TO_CREATE_STICKERS]), create_stickers_by_bot)
+updater.dispatcher.add_handler(create_stickers_menu_handler)
+
+get_top_of_articles_handler = MessageHandler(Filters.text([TEXT_TOP]), get_top_of_articles)
+updater.dispatcher.add_handler(get_top_of_articles_handler)
+
+put_all_on_collected_menu_handler =MessageHandler(Filters.text([TEXT_TO_PUT_ON_COLLECTED]), put_all_on_collected)
+updater.dispatcher.add_handler(put_all_on_collected_menu_handler)
+
+update_table_menu_handler = MessageHandler(Filters.text([TEXT_UPDATE_TABLE]),force_update_table)
+updater.dispatcher.add_handler(update_table_menu_handler)
+
+get_stats_handler = MessageHandler(Filters.text(['Статистика']), get_stats)
+updater.dispatcher.add_handler(get_stats_handler)
 
 start_handler = CommandHandler('start', start)
 updater.dispatcher.add_handler(start_handler)
@@ -172,5 +334,8 @@ updater.dispatcher.add_handler(create_results_handler)
 get_finall_db_handler = CommandHandler(
     'get_finall_db', send_finall_db)
 updater.dispatcher.add_handler(get_finall_db_handler)
+
+
+
 
 updater.start_polling()
