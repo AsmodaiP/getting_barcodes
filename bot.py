@@ -1,4 +1,5 @@
 import re
+from reportlab.lib.utils import CIDict, prev_this_next
 from requests.api import get
 import telegram
 import telebot
@@ -15,9 +16,12 @@ from create_stickers_and_db import create_path_if_not_exist, create_stickers, ge
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Filters
 from fbs import update_table
+import json
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 log_file = os.path.join(BASE_DIR, 'bot.log')
+
+DEFAULT_CLIENT = 'БелотеловАГ'
 
 console_handler = logging.StreamHandler()
 file_handler = RotatingFileHandler(
@@ -42,6 +46,7 @@ except KeyError as e:
     logging.error(e, exc_info=True)
     sys.exit('Не удалось получить переменные окружения')
 
+USERS = json.load(open('users_and_client.json', 'rb'))
 
 
 bot = telegram.Bot(token=TELEGRAM_TOKEN)
@@ -54,6 +59,7 @@ TEXT_TO_CREATE_STICKERS = 'Создать стикеры'
 TEXT_UPDATE_TABLE = 'Обновить таблицу'
 TEXT_STATS = 'Статистика'
 TEXT_TOP = 'Топ артикулов по количеству'
+TEXT_SWAP_CLIENT = 'Сменить аккаунт'
 
 whitelistid = (1617188356, 1126541068, 482957060, 172902983)
 
@@ -73,7 +79,7 @@ def start(update, _):
     # user = update.message.from_user
     main_menu_keyboard = (
         [KeyboardButton(TEXT_TO_CREATE_STICKERS), KeyboardButton(TEXT_TOP)],
-        [KeyboardButton(TEXT_TO_PUT_ON_ASSEMBLY_BY_COUNT), KeyboardButton(TEXT_TO_PUT_ON_ASSEMBLY_BY_ARTICLE)],
+        [KeyboardButton(TEXT_TO_PUT_ON_ASSEMBLY_BY_COUNT),KeyboardButton(TEXT_SWAP_CLIENT), KeyboardButton(TEXT_TO_PUT_ON_ASSEMBLY_BY_ARTICLE)],
         [KeyboardButton(TEXT_TO_PUT_ON_COLLECTED)],
         [KeyboardButton(TEXT_UPDATE_TABLE), KeyboardButton(TEXT_STATS)]
     )
@@ -99,9 +105,14 @@ def send_db(id):
     bot.send_document(id, document=open('db.xlsx', 'rb'))
 
 def create_stickers_by_bot(message, update):
-
+    # USERS = json.load(open('users_and_client.json', 'rb'))
     id = message['message']['chat']['id']
     if id in whitelistid:
+        # try:
+        #     client = USERS[str(id)]['client']
+        # except:
+        #     client= 'БелотеловАГ'
+        # create_stickers_and_db.swap_token_by_name(client)
         bot.send_message(id, 'Начато создание стикеров')
         count_of_orders, barcodes = create_stickers()
         if count_of_orders == 0:
@@ -191,7 +202,8 @@ def force_update_table(message, update):
         str_errors = '\n'.join(errors)
         if result != '':
             send_notification(result)
-            send_notification(f'Что-то не так с артикулами \n{str_errors}')
+            if len(errors)>0:
+                send_notification(f'Что-то не так с артикулами \n{str_errors}')
             bot.send_message(id, result)
 
 
@@ -255,8 +267,8 @@ def set_on_assembly_by_count(bot,update):
         bot.message.reply_text('Неверный формат числа')
         return ConversationHandler.END
     orders = create_stickers_and_db.get_all_orders(status=0)[:count]
-    orders_ids = [order['orderId'] for order in orders ]
-    create_stickers_and_db.set_status_to_orders_by_ids(1, orders_ids)
+    # orders_ids = [order['orderId'] for order in orders ]
+    create_stickers_and_db.set_status_to_orders(1,orders)
     bot.message.reply_text(f'{len(orders)} передано на сборку')
     return ConversationHandler.END
 
@@ -266,7 +278,7 @@ updater.dispatcher.add_handler(t)
 set_on_assembly_by_article_handler = ConversationHandler(
     entry_points=[MessageHandler(Filters.text([TEXT_TO_PUT_ON_ASSEMBLY_BY_ARTICLE]), get_articles_from_user)],
     states ={
-         'article' : [MessageHandler(Filters.text, get_articles_from_user)],
+         'article' : [MessageHandler(Filters.text & ~Filters.command, get_articles_from_user)],
          'count': [MessageHandler(Filters.text & ~Filters.command, get_count_from_user)],
          'set_on_assembly':[MessageHandler(Filters.text, set_on_assembly_by_article)]
          },
@@ -291,6 +303,56 @@ def get_stats(bot, update):
     
     orders_on_assembly = len(get_all_orders(status=1))
     bot.message.reply_text(f'{count_new} — новых, из них без адреса — {count_order_without_address} \n{orders_on_assembly} — на сборке \n ')
+
+def get_client_from_user(bot, update):
+    cred = json.load(open('credentials.json', 'rb'))
+    names = '\n'.join(cred)
+    bot.message.reply_text(f'Текущий аккаунт {create_stickers_and_db.get_name()}\n\nВарианты выбора \nВыберете один и отправьте его в чат \n{names}')
+    return 'get_client_from_user'
+
+def swap_by_client_from_user(bot, update):
+    try:
+        client = bot.message.text.strip()
+        if client in json.load(open('credentials.json', 'rb')):
+            create_stickers_and_db.swap_token_by_name(client)
+            bot.message.reply_text(f'Переключение на аккаунт «{client}» прошло успешно')
+        else:
+            bot.message.reply_text(f'Такого аккаунта не существует')
+    except:
+        bot.message.reply_text(f'Что-то пошло не так, попробуйте еще раз, проверив данные')
+    return ConversationHandler.END
+
+    
+swap_client_handler = ConversationHandler(
+    entry_points=[MessageHandler(Filters.text(TEXT_SWAP_CLIENT), get_client_from_user)],
+    states={
+        'get_client_from_user':  [MessageHandler(Filters.text & ~Filters.command, swap_by_client_from_user)]
+    },
+    fallbacks=[CommandHandler('cancel', cancel)])
+
+def swap_client_in_json_by_bot(bot, update):
+    id = bot['message']['chat']['id']
+    client = bot.message.text.strip()
+    swap_or_create_client_in_json(id, client)
+
+def swap_or_create_client_in_json(id,  client):
+    db = json.load(open('users_and_client.json', 'rb'))
+    if client in json.load(open('credentials.json', 'rb')):
+        db[id]=client
+        with open('users_and_client.json','w', encoding='utf-8') as f:
+            json.dump(db, f,ensure_ascii=False)
+
+def get_client_info_by_telegram_id(id):
+    db = json.load(open('users_and_client.json', 'rb'))
+    if str(id) not in db:
+        swap_or_create_client_in_json(id, DEFAULT_CLIENT)
+    client = db[str(id)]['client']
+    client_db = json.load(open('credentials.json', 'rb'))
+    return client_db[client]
+
+print(get_client_info_by_telegram_id(22))
+
+updater.dispatcher.add_handler(swap_client_handler)
 
 
 updater.dispatcher.add_handler(set_on_assembly_by_count_handler)

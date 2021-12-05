@@ -6,6 +6,7 @@ import datetime as dt
 from create_stickers_and_db import create_all_today_path, create_finall_table_of_day
 from dotenv import load_dotenv
 import logging
+import sys
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
@@ -14,7 +15,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'credentials_service.json')
 credentials = service_account.Credentials.from_service_account_file(
     SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-RANGE_NAME = '04.2021'
+RANGE_NAME = '11.2021'
 START_POSITION_FOR_PLACE = 14
 
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
@@ -63,25 +64,60 @@ def update_table():
         print('No data found.')
     else:
         body_data = []
+
         for row in values[2:]:
             article = row[6].strip().upper()
             count = get_count_or_0(data, article)
-            logging.info(f'Для {article} получено количество продаж {count}')
+            # logging.info(f'Для {article} получено количество продаж {count}')
             letter_for_range = convert_to_column_letter(position_for_place)
-            body_data += [{'range': f'{letter_for_range}{i}',  'values': [[count]]}]
-
+            if count != 0:
+                body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]}]
             
-            i += 1
             if count != 0:
                 result += f'{article} — {count}\n'
+            else:
+                try:
+                    if row[position_for_place-1].strip() == '':
+                        print(row[position_for_place-1].strip())
+                        body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]}]
+                        print({'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]})
+                        # print(f'{row[position_for_place].strip()},{count} {position_for_place}')
+                except:
+                    body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]}]
+                    print('sdfs')
+            i += 1
         body = {
             'valueInputOption': 'USER_ENTERED',
             'data':body_data
         }
         sheet.values().batchUpdate(spreadsheetId=SPREADSHEET_ID, body=body).execute()
-        print(data)
+        # print(body_data)
     return {'result':result, 'erors': data.keys()}
 
 
 if __name__ == '__main__':
     update_table()
+
+    # position_for_place = START_POSITION_FOR_PLACE + (dt.date.today().day-2)*6
+    # data = get_data_about_articles()
+    # service = build('sheets', 'v4', credentials=credentials)
+    # sheet = service.spreadsheets()
+    # result = sheet.values().get(spreadsheetId=SPREADSHEET_ID,
+    #                             range=RANGE_NAME, majorDimension='ROWS').execute()
+    # values = result.get('values', [])
+    # i = 3
+    # result = ''
+    # if not values:
+    #     print('No data found.')
+    # else:
+    #     body_data = []
+    #     art = {}
+    #     for row in values[2:]:
+    #         # print(row[7])
+    #         if row[7] not in art.keys():
+    #             art[row[7]]=1
+    #         else:
+    #             art[row[7]]+=1
+    # for a in art.keys():
+    #     if art[a]>1:
+    #         print(a)

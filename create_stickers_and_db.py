@@ -1,6 +1,7 @@
 import datetime
 import json
 from sys import path
+from openpyxl.styles.fills import PatternFill
 import pytz
 import requests
 import shutil
@@ -20,7 +21,12 @@ from requests.models import ReadTimeoutError
 from dateutil import tz
 from openpyxl.styles.borders import Border, Side
 import sys
-
+from openpyxl.styles import Protection, Font, Fill
+from openpyxl.formatting import Rule
+from openpyxl.styles.differential import DifferentialStyle
+from openpyxl.formatting.rule import CellIsRule
+from openpyxl.formatting.rule import ColorScaleRule, CellIsRule, FormulaRule
+pdfmetrics.registerFont(TTFont('FreeSans', 'fonts/FreeSans.ttf'))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 log_dir = os.path.join(BASE_DIR, 'logs/')
 log_file = os.path.join(BASE_DIR, 'logs/stickers.log')
@@ -41,7 +47,7 @@ logging.basicConfig(
 )
 
 
-pdfmetrics.registerFont(TTFont('FreeSans', 'fonts/FreeSans.ttf'))
+
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path)
@@ -275,7 +281,6 @@ def create_and_merge_pdf_by_barcodes_and_ids(barcodes_and_ids):
         json_orders_id = {
             "orderIds": orders
         }
-        print(orders)
         response = requests.post(
                 url_for_getting_stikers,
                 json=json_orders_id,
@@ -445,12 +450,16 @@ def create_db_for_checking(barcodes):
 
     book = openpyxl.Workbook()
     sheet = book.active
+    book.create_sheet("Итог")
+    book.create_sheet('Проверка')
     sheet['A1'] = 'Номер заказа'
     sheet['B1'] = 'Артикул'
     sheet['C1'] = 'Наименование'
     sheet['D1'] = 'Баркод'
     sheet['E1'] = 'Stick'
-
+    sheet.protection.sheet=True
+    sheet.protection.set_password('osdfjl2')
+    sheet.protection.enable()
 
     row = 2
     logging.info('Формирование xlsx файла')
@@ -468,18 +477,21 @@ def create_db_for_checking(barcodes):
             sheet[row][4].value = sticker_encoded
             sheet[f'K{row}'] = f'=IF(ISERROR(MATCH(J{row+1},L{row},0)),"",TRUE)'
             sheet[f'L{row}'] = f'=IF(ISERROR(INDEX(D:D,MATCH(J{row},E:E,0),1)),"",INDEX(D:D,MATCH(J{row},E:E,0),1))'
-            sheet[f'M{row}'] = f'=INDEX(B:B, MATCH(J{row},D:D,0),1)'
             row += 1
 
-    book.create_sheet("Sheet2")
+    # book.create_sheet("Итог")
     book.active = 1                                                     
     sheet = book.active
     sheet['A1'] = 'Артикул'
     sheet['A1'].border = THIN_BORDER
     sheet['B1'] = 'Количество'
     sheet['B1'].border = THIN_BORDER
+    sheet['C1'] = 'Собрано'
+    sheet['B1'].border = THIN_BORDER
     row = 2
-
+    sheet.protection.sheet=True
+    sheet.protection.set_password('osdfjl2')
+    sheet.protection.enable()
     for article in article_counts.keys():
         cell = sheet.cell(row=row, column=1)
         cell.value = article
@@ -487,6 +499,10 @@ def create_db_for_checking(barcodes):
 
         cell = sheet.cell(row=row, column=2)
         cell.value = article_counts[article]
+        cell.border = THIN_BORDER
+
+        cell = sheet.cell(row=row, column=3)
+        cell.value = f'=COUNTIF(Проверка!D:D,A{row})'
         cell.border = THIN_BORDER
         row += 1
     cell = sheet.cell(row=row, column=1)
@@ -496,6 +512,41 @@ def create_db_for_checking(barcodes):
     cell = sheet.cell(row=row, column=2)
     cell.value = f'=SUM(B2:B{row-1})'
     cell.border = MEDIUM_BORDER
+    cell = sheet.cell(row=row, column=3)
+    cell.value = f'=SUM(C2:C{row-1})'
+    cell.border = THIN_BORDER
+    
+    green_fill=PatternFill(bgColor="a0db8e")
+    sheet.conditional_formatting.add('C1:C3000',FormulaRule(formula=['IF(AND(C1=B1, C1<>""),True,False)'], stopIfTrue=True, fill=green_fill))
+ 
+    book.active = 2
+    sheet = book.active
+    red_fill = PatternFill(bgColor="FFC7CE")
+
+    sheet.conditional_formatting.add('B1:B3000',FormulaRule(formula=['IF(B1="Ошибка",True,False)'], stopIfTrue=True, fill=red_fill))
+
+    row = 2
+    sheet['A1'] = 'Данные'
+    sheet['B1'] = 'Результат'
+    sheet['D1'] = 'Артикул'
+    sheet.protection.sheet=True
+    sheet.protection.enable()
+    for barcode in barcodes_and_stickers.keys():
+        barcode_info = barcodes_and_stickers[barcode]
+        for order in barcode_info.keys():
+            for i in range(2):
+                if row % 2 == 0: 
+                    # =IF(AND(ISERROR(MATCH(A3,C2,0)),A2<>"",A3<>""),"Ошибка","")
+                    sheet[f'B{row}'] = f'=IF(AND(ISERROR(MATCH(A{row+1},C{row},0)),A{row}<>"",A{row+1}<>""),"Ошибка","")'
+                    sheet[f'C{row}'] = f'=IF(ISERROR(INDEX(Sheet!D:D,MATCH(A{row},Sheet!E:E,0),1)),"",INDEX(Sheet!D:D,MATCH(A{row},Sheet!E:E,0),1))'
+                else:
+                    sheet[f'D{row}'] = f'=IF(AND(B{row-1}<>"Ошибка", A{row-1}<>""),INDEX(Sheet!B:B, MATCH(A{row},Sheet!D:D,0),1), "")'
+                sheet[f'A{row}'].number_format = '@'
+                sheet[f'A{row}'].protection = Protection(locked=False)
+                row += 1
+    for column in ['C', 'D']:
+        for cell in sheet[column]:
+            cell.font= Font(color='Ffffffff')
     book.save('db.xlsx')
     book.close()
 
@@ -522,11 +573,11 @@ def set_status_to_orders_by_ids(status, ids):
             "orderId": str(id),
             "status": int(status)
         }]
-        js = json.dumps(data_for_bulk_set_status)
+        
         # response = requests.put(url_for_set_status, headers=headers, data=js)
         # print(response.content)
+    js = json.dumps(data_for_bulk_set_status)
     response = requests.put(url_for_set_status, headers=headers, data=js)
-    print(response.content)
     # for ord
 
 def set_status_to_orders(status, orders):
@@ -778,14 +829,554 @@ def filter_orders_by_article(articles, count):
 #     orders = filter_orders_by_article(article)
 #     set_status_to_orders(1, orders)
 
+def swap_token_by_name(name):
+    global TOKEN
+    cred = json.load(open('credentials.json', 'rb'))
+    global NAME
+    TOKEN = cred[name]['token']
+    NAME = cred[name]['name']
+    global headers
+    headers = {
+        'Authorization': TOKEN,
+    }
+    create_all_today_path()
+
+def get_name():
+    return NAME
+
 if __name__ == '__main__':
-    create_stickers()
-    # orders =get_all_orders()
+    swap_token_by_name('БелотеловАГ')
+    blacklist=[
+        138455171,
+138457541,
+138460357,
+138473645,
+138500139,
+138500134,
+138500716,
+138501542,
+138507376,
+138520222,
+138522217,
+138527329,
+138531535,
+138536231,
+138549122,
+138575639,
+138586056,
+138594351,
+138596418,
+138609844,
+138612350,
+138637307,
+138639836,
+138644986,
+138665385,
+138672205,
+138673940,
+138677130,
+138677345,
+138677654,
+138678296,
+138685019,
+138706938,
+138713466,
+138729496,
+138730355,
+138750405,
+138762234,
+138775117,
+138799167,
+138799158,
+138817930,
+138818371,
+138820035,
+138833465,
+138853066,
+138862400,
+138865136,
+138866761,
+138867971,
+138878020,
+138888949,
+138893684,
+138900118,
+138901336,
+138916746,
+138919278,
+138921736,
+138941898,
+138946042,
+138946035,
+138971785,
+138971788,
+138980787,
+139003645,
+139026849,
+139031458,
+139042500,
+139042664,
+139047569,
+139051473,
+139066012,
+139066428,
+139070351,
+139088058,
+139097675,
+139098407,
+139099178,
+139102086,
+139110869,
+139131801,
+139136970,
+139136986,
+139136990,
+139140877,
+139142542,
+139151927,
+139158363,
+139162008,
+139181208,
+139185728,
+139216245,
+139232480,
+139243786,
+139266514,
+139270680,
+138462887,
+138465989,
+138478181,
+138514210,
+138521023,
+138534332,
+138539281,
+138555282,
+138564928,
+138572104,
+138578125,
+138579354,
+138599040,
+138612774,
+138621543,
+138622088,
+138631010,
+138643441,
+138649247,
+138661800,
+138666099,
+138667813,
+138692210,
+138698690,
+138706246,
+138724447,
+138745162,
+138758861,
+138758873,
+138759932,
+138759931,
+138764782,
+138774985,
+138776961,
+138776951,
+138783963,
+138785280,
+138826202,
+138842157,
+138869466,
+138871745,
+138876455,
+138877370,
+138883825,
+138896126,
+138903365,
+138919873,
+138937871,
+138938250,
+138939266,
+138982541,
+139051678,
+139055343,
+139055805,
+139062049,
+139063903,
+139073710,
+139104764,
+139139598,
+139141082,
+139142308,
+139230445,
+139245332,
+139253781,
+139257333,
+139269907,
+138461699,
+138466757,
+138478082,
+138549377,
+138555533,
+138580784,
+138606885,
+138617343,
+138631632,
+138632027,
+138680801,
+138681489,
+138709499,
+138711442,
+138719467,
+138723564,
+138819400,
+138850209,
+138856528,
+138878166,
+138885438,
+138989758,
+139025425,
+139090688,
+139106808,
+139137847,
+139161129,
+139161172,
+139161926,
+139235244,
+139235241,
+139252768,
+139256617,
+139258434,
+139262769,
+138489121,
+138524082,
+138524083,
+138524084,
+138524087,
+138567801,
+138571098,
+138607718,
+138607731,
+138638998,
+138643553,
+138643717,
+138687816,
+138694997,
+138701773,
+138702754,
+138808239,
+138816420,
+138867591,
+138871702,
+138937345,
+138937356,
+138958957,
+139023738,
+139055647,
+139055643,
+139056082,
+139059388,
+139124855,
+139124850,
+139237420,
+139257881,
+139261303,
+138564696,
+138565970,
+138595610,
+138595615,
+138607734,
+138607738,
+138751565,
+138783042,
+138783053,
+138793538,
+138798384,
+138841037,
+138861037,
+138877885,
+138889794,
+138978690,
+138978695,
+138986760,
+139039322,
+139039327,
+139041694,
+139067253,
+139067259,
+139132644,
+139138698,
+139154533,
+139254775,
+139256720,
+139256852,
+139257126,
+139257795,
+139262757,
+139263104,
+139263968,
+139263983,
+139264261,
+139265145,
+139266839,
+139267700,
+139270937,
+139271324,
+139273317,
+139274924,
+139275445,
+139252162,
+139253657,
+139256435,
+139256531,
+139257125,
+139257127,
+139258132,
+139263089,
+139266195,
+139266196,
+139266235,
+139266651,
+139271714,
+139275102,
+138459978,
+138599490,
+138599499,
+138605802,
+138615890,
+138635914,
+138782930,
+138790936,
+138794426,
+138794429,
+138815721,
+138999391,
+138593688,
+138624366,
+138651396,
+138756273,
+138819439,
+138831499,
+138917398,
+138979792,
+139107392,
+139108663,
+139114142,
+139234004,
+138484273,
+138548989,
+138549452,
+138608439,
+138664179,
+138677628,
+138694721,
+139044798,
+139063911,
+139084663,
+139240575,
+138520917,
+138594348,
+138595616,
+138722539,
+138733604,
+138818343,
+138868179,
+138967581,
+139088057,
+139153755,
+138520495,
+138520497,
+138653368,
+138657087,
+138676848,
+138747854,
+138753305,
+138820869,
+138953059,
+138610926,
+138746636,
+138883190,
+139108661,
+139141384,
+139203345,
+139234006,
+139234008,
+139249958,
+138767137,
+138770934,
+138819440,
+138819955,
+138892453,
+138924416,
+139088059,
+139236720,
+139258194,
+138488876,
+138800494,
+138830795,
+138854348,
+138962919,
+138962923,
+139024060,
+139275010,
+138531432,
+138622218,
+138670719,
+138705808,
+138819956,
+138945680,
+138973668,
+139241462,
+138553494,
+138666933,
+138755955,
+138815073,
+138833200,
+138930001,
+138971574,
+139046381,
+138692797,
+138793539,
+138841442,
+139049266,
+139059479,
+139062107,
+139130762,
+139264964,
+139264966,
+139266352,
+139267419,
+139269692,
+139269694,
+139275103,
+138578200,
+138751746,
+138756553,
+138777807,
+139180678,
+139187525,
+138641664,
+138699396,
+138929985,
+138977104,
+139000481,
+139205093,
+138676512,
+138761861,
+138794427,
+138815722,
+138815726,
+138835626,
+138481492,
+138588983,
+138665803,
+138683767,
+138776255,
+138981854,
+139014937,
+139187338,
+139258731,
+138525839,
+138634261,
+138862332,
+138638156,
+138705490,
+139261388,
+138817672,
+139021383,
+139023070,
+138847541,
+139009129,
+139258725,
+138919955,
+139139009,
+139163024,
+138985932,
+139055642,
+139055644,
+139264475,
+139269906,
+139274313,
+138469170,
+138503368,
+138470456,
+138868425,
+138476417,
+138896526,
+138518691,
+138835784,
+138527381,
+138663726,
+138562750,
+138573920,
+138641453,
+139108364,
+138677346,
+138977675,
+138686587,
+138971854,
+138723974,
+138964576,
+138926629,
+138968754,
+139000737,
+139063205,
+139028939,
+139111656,
+139117915,
+139177023,
+139131016,
+139203999,
+138580670,
+138632758,
+138754721,
+138787059,
+138825643,
+138875000,
+138876315,
+138876905,
+138882209,
+138897485,
+138921271,
+138934699,
+138955959,
+138982035,
+139028171,
+139080469,
+139082427,
+139263174,
+    ]
+    # create_stickers()
+    # orders =get_all_orders(status=1)
+    
+    # print(len(orders))
+    # orders_id = []
+    # # for order in orders:
+    # #     orders_id.append(orderp['orderId']])
+    # orders_id = [x['orderId'] for x in orders if int(x['orderId']) not in blacklist]
+    # print(len(orders_id))
+    # create_stickers_by_id()
+
+    orders = get_all_orders(status=1)
+    print(len(orders))
+    orders = [order for order in orders if int(order['orderId']) not in blacklist]
+    print(len(orders))
+    barcodes = get_barcodes_with_full_info(orders)
+    with open('barcodes.json','w', encoding='utf-8') as f:
+        json.dump(barcodes, f,ensure_ascii=False)
+    add_json_file_to_today_json('barcodes.json')
+    create_pdf_stickers_by_barcodes(barcodes)
+    # return (len(orders), barcodes)
+
+
+    # with open('fsdf.txt', 'w') as f:
+    #     print(orders_id, file=f)
+    # for order in orders:
+    #     if int(order['orderId']) in blacklist:
+    #         print(f'найдет {order["orderId"]}')
+    #         orders.remove(order)
+    # print(len(orders))
     # baroces = get_barcodes_with_full_info(orders)
     # print(baroces.items())
     # а
     # barcodes = sorted_barcodes_by_count_of_orders(barcodes)
-    pass
+    # pass
     # set_status_to_orders_by_ids(1,orders)
 
     # sorted_by_barcode_set_status_on_assembly('2000790297008', 350)
@@ -811,7 +1402,16 @@ if __name__ == '__main__':
 
     # with open('test.pdf', 'wb') as f:
     #     f.write(codecs.decode(data, 'base64'))
-
+    # orders = get_all_orders(status=1)
+    # if len(orders) == 0:
+    #     return (0,0)
+    # barcodes = get_barcodes_with_full_info(orders)
+    # with open('barcodes.json','w', encoding='utf-8') as f:
+    #     json.dump(barcodes, f,ensure_ascii=False)
+    # add_json_file_to_today_json('barcodes.json')
+    # create_db_for_checking(barcodes)
+    # create_pdf_stickers_by_barcodes(barcodes)
+    # create_pdf_stickers_by_barcodes(barcodes)
     # date_start='2021-11-06T00:47:17.528082+00:00'
     # logging.info(f'Получение всех заказов со статусом {2}')
     # date_end=get_now_time()
