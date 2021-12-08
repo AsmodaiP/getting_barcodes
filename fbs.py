@@ -15,7 +15,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'credentials_service.json')
 credentials = service_account.Credentials.from_service_account_file(
     SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-RANGE_NAME = '11.2021'
+RANGE_NAME = '12.2021'
 START_POSITION_FOR_PLACE = 14
 
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
@@ -66,25 +66,23 @@ def update_table():
         body_data = []
 
         for row in values[2:]:
-            article = row[6].strip().upper()
+            article = row[7].strip().upper()
+            price = row[8].strip()[:-1]
             count = get_count_or_0(data, article)
-            # logging.info(f'Для {article} получено количество продаж {count}')
             letter_for_range = convert_to_column_letter(position_for_place)
             if count != 0:
                 body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]}]
-            
-            if count != 0:
                 result += f'{article} — {count}\n'
             else:
                 try:
                     if row[position_for_place-1].strip() == '':
-                        print(row[position_for_place-1].strip())
                         body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]}]
-                        print({'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]})
                         # print(f'{row[position_for_place].strip()},{count} {position_for_place}')
                 except:
                     body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]}]
-                    print('sdfs')
+            if price.isdigit():
+                letter_for_range = convert_to_column_letter(position_for_place+2)
+                body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[int(price)*int(count)]]}]
             i += 1
         body = {
             'valueInputOption': 'USER_ENTERED',
@@ -96,7 +94,7 @@ def update_table():
 
 
 if __name__ == '__main__':
-    update_table()
+    print(update_table()['erors'])
 
     # position_for_place = START_POSITION_FOR_PLACE + (dt.date.today().day-2)*6
     # data = get_data_about_articles()
@@ -121,3 +119,14 @@ if __name__ == '__main__':
     # for a in art.keys():
     #     if art[a]>1:
     #         print(a)
+
+# def get_data_about_articles():
+#     json_dir = create_all_today_path()['json_dir']
+#     create_finall_table_of_day()
+    # data = json.load(open(os.path.join(json_dir, 'result_fbs.json'), 'r'))
+    # return data
+
+
+    # data=get_data_about_articles()
+    # print(data)
+    

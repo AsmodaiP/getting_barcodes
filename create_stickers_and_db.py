@@ -47,7 +47,6 @@ logging.basicConfig(
 )
 
 
-
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path)
@@ -379,9 +378,12 @@ def get_card_by_nmid(nmid):
 
 def getting_information_about_barcode_by_chartId(chrtId):
     good = get_card_by_chrtId(chrtId)
+    supplierVendorCode = good['supplierVendorCode']
     name = ''
     nomenclature_data, article, nomenclature = get_data_nomenclature_from_card_by_chrtId(
         good, int(chrtId))
+    article =  supplierVendorCode + article 
+    nmid=nomenclature['nmId']
     size = ''
     color = ''
     extra_colors = ''
@@ -408,7 +410,8 @@ def getting_information_about_barcode_by_chartId(chrtId):
         'chrtId': chrtId,
         'size': size,
         'color': color,
-        'extra_colors': extra_colors
+        'extra_colors': extra_colors,
+        'nmid': nmid
     }
     return info
 
@@ -753,6 +756,32 @@ def get_dict_of_unique_orders_and_article():
                     order_and_article_dict[order] = data[barcode]['info']['article']
     return order_and_article_dict
 
+def get_dict_of_unique_orders_and_nmid():
+    list_of_json = get_list_of_relative_path_to_all_today_json()
+    order_and_nmid_dict = {}
+    for json_path in list_of_json:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            for barcode in data.keys():
+                orders = data[barcode]['orders']
+                # print(orders)
+                for order in orders:
+                    order_and_nmid_dict[order] = data[barcode]['info']['nmid']
+    return order_and_nmid_dict
+
+def get_dict_of_unique_orders_and_nmid():
+    list_of_json = get_list_of_relative_path_to_all_today_json()
+    order_and_article_dict = {}
+    for json_path in list_of_json:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            for barcode in data.keys():
+                orders = data[barcode]['orders']
+                # print(orders)
+                for order in orders:
+                    order_and_article_dict[order] = data[barcode]['info']['nmid']
+    return order_and_article_dict
+
 def get_today_article_and_count():
     orders_and_article = get_dict_of_unique_orders_and_article()
     article_and_count = {}
@@ -764,10 +793,21 @@ def get_today_article_and_count():
             article_and_count[article] += 1
     return article_and_count
 
+def get_today_nmid_and_count():
+    orders_and_article = get_dict_of_unique_orders_and_nmid()
+    article_and_count = {}
+    for order in orders_and_article.keys():
+        article = orders_and_article[order]
+        if not article in article_and_count:
+            article_and_count[article] = 1
+        else:
+            article_and_count[article] += 1
+    return article_and_count
 
 def create_finall_table_of_day():
     logging.info('Получение артикулов и количества заказов для них')
-    article_and_count = get_today_article_and_count()
+    article_and_count = get_today_nmid_and_count()
+    
     json_dir = create_all_today_path()['json_dir']
     path_for_saving_aricle_and_count_dict = os.path.join(json_dir,'result_fbs.json')
     with open(path_for_saving_aricle_and_count_dict, 'w') as f:
@@ -779,6 +819,7 @@ def create_finall_table_of_day():
     sheet['B1'] = 'Количество'
     sheet['B1'].border = THIN_BORDER
     row = 2
+    article_and_count = get_today_article_and_count()
     for article in article_and_count.keys():
         cell = sheet.cell(row=row, column=1)
         cell.value = article
@@ -844,504 +885,91 @@ def swap_token_by_name(name):
 def get_name():
     return NAME
 
+def close_supplie(supplie_id:str):
+    URL_FOR_CLOSING_SUPPLIE = f'https://suppliers-api.wildberries.ru/api/v2/supplies/{supplie_id}/close'
+    response = requests.post(URL_FOR_CLOSING_SUPPLIE, headers=headers)
+    if response.status_code == 200:
+        return None
+    return response.json()['errorText']
+
+
+def add_orders_to_supplie(supplie_id, orders):
+    try:
+        order_ids = [order['orderId'] for order in orders]
+        return add_orders_to_supplie_by_id(supplie_id, order_ids)
+    except:
+        return 'Что-то пошло не так' 
+
+def add_orders_to_supplie_by_id(supplie_id, orders_ids):
+    data = {'orders':orders_ids}
+    js = json.dumps(data)
+    URL_FOR_ADD_ORDERS_TO_SUPPLIE = f'https://suppliers-api.wildberries.ru/api/v2/supplies/{supplie_id}'
+    response = requests.put(URL_FOR_ADD_ORDERS_TO_SUPPLIE, headers=headers, data=js)
+
+    if response.status_code != 200:
+        return 200
+    else:
+        return response.json()['errorText']
+
 if __name__ == '__main__':
-    swap_token_by_name('БелотеловАГ')
-    blacklist=[
-        138455171,
-138457541,
-138460357,
-138473645,
-138500139,
-138500134,
-138500716,
-138501542,
-138507376,
-138520222,
-138522217,
-138527329,
-138531535,
-138536231,
-138549122,
-138575639,
-138586056,
-138594351,
-138596418,
-138609844,
-138612350,
-138637307,
-138639836,
-138644986,
-138665385,
-138672205,
-138673940,
-138677130,
-138677345,
-138677654,
-138678296,
-138685019,
-138706938,
-138713466,
-138729496,
-138730355,
-138750405,
-138762234,
-138775117,
-138799167,
-138799158,
-138817930,
-138818371,
-138820035,
-138833465,
-138853066,
-138862400,
-138865136,
-138866761,
-138867971,
-138878020,
-138888949,
-138893684,
-138900118,
-138901336,
-138916746,
-138919278,
-138921736,
-138941898,
-138946042,
-138946035,
-138971785,
-138971788,
-138980787,
-139003645,
-139026849,
-139031458,
-139042500,
-139042664,
-139047569,
-139051473,
-139066012,
-139066428,
-139070351,
-139088058,
-139097675,
-139098407,
-139099178,
-139102086,
-139110869,
-139131801,
-139136970,
-139136986,
-139136990,
-139140877,
-139142542,
-139151927,
-139158363,
-139162008,
-139181208,
-139185728,
-139216245,
-139232480,
-139243786,
-139266514,
-139270680,
-138462887,
-138465989,
-138478181,
-138514210,
-138521023,
-138534332,
-138539281,
-138555282,
-138564928,
-138572104,
-138578125,
-138579354,
-138599040,
-138612774,
-138621543,
-138622088,
-138631010,
-138643441,
-138649247,
-138661800,
-138666099,
-138667813,
-138692210,
-138698690,
-138706246,
-138724447,
-138745162,
-138758861,
-138758873,
-138759932,
-138759931,
-138764782,
-138774985,
-138776961,
-138776951,
-138783963,
-138785280,
-138826202,
-138842157,
-138869466,
-138871745,
-138876455,
-138877370,
-138883825,
-138896126,
-138903365,
-138919873,
-138937871,
-138938250,
-138939266,
-138982541,
-139051678,
-139055343,
-139055805,
-139062049,
-139063903,
-139073710,
-139104764,
-139139598,
-139141082,
-139142308,
-139230445,
-139245332,
-139253781,
-139257333,
-139269907,
-138461699,
-138466757,
-138478082,
-138549377,
-138555533,
-138580784,
-138606885,
-138617343,
-138631632,
-138632027,
-138680801,
-138681489,
-138709499,
-138711442,
-138719467,
-138723564,
-138819400,
-138850209,
-138856528,
-138878166,
-138885438,
-138989758,
-139025425,
-139090688,
-139106808,
-139137847,
-139161129,
-139161172,
-139161926,
-139235244,
-139235241,
-139252768,
-139256617,
-139258434,
-139262769,
-138489121,
-138524082,
-138524083,
-138524084,
-138524087,
-138567801,
-138571098,
-138607718,
-138607731,
-138638998,
-138643553,
-138643717,
-138687816,
-138694997,
-138701773,
-138702754,
-138808239,
-138816420,
-138867591,
-138871702,
-138937345,
-138937356,
-138958957,
-139023738,
-139055647,
-139055643,
-139056082,
-139059388,
-139124855,
-139124850,
-139237420,
-139257881,
-139261303,
-138564696,
-138565970,
-138595610,
-138595615,
-138607734,
-138607738,
-138751565,
-138783042,
-138783053,
-138793538,
-138798384,
-138841037,
-138861037,
-138877885,
-138889794,
-138978690,
-138978695,
-138986760,
-139039322,
-139039327,
-139041694,
-139067253,
-139067259,
-139132644,
-139138698,
-139154533,
-139254775,
-139256720,
-139256852,
-139257126,
-139257795,
-139262757,
-139263104,
-139263968,
-139263983,
-139264261,
-139265145,
-139266839,
-139267700,
-139270937,
-139271324,
-139273317,
-139274924,
-139275445,
-139252162,
-139253657,
-139256435,
-139256531,
-139257125,
-139257127,
-139258132,
-139263089,
-139266195,
-139266196,
-139266235,
-139266651,
-139271714,
-139275102,
-138459978,
-138599490,
-138599499,
-138605802,
-138615890,
-138635914,
-138782930,
-138790936,
-138794426,
-138794429,
-138815721,
-138999391,
-138593688,
-138624366,
-138651396,
-138756273,
-138819439,
-138831499,
-138917398,
-138979792,
-139107392,
-139108663,
-139114142,
-139234004,
-138484273,
-138548989,
-138549452,
-138608439,
-138664179,
-138677628,
-138694721,
-139044798,
-139063911,
-139084663,
-139240575,
-138520917,
-138594348,
-138595616,
-138722539,
-138733604,
-138818343,
-138868179,
-138967581,
-139088057,
-139153755,
-138520495,
-138520497,
-138653368,
-138657087,
-138676848,
-138747854,
-138753305,
-138820869,
-138953059,
-138610926,
-138746636,
-138883190,
-139108661,
-139141384,
-139203345,
-139234006,
-139234008,
-139249958,
-138767137,
-138770934,
-138819440,
-138819955,
-138892453,
-138924416,
-139088059,
-139236720,
-139258194,
-138488876,
-138800494,
-138830795,
-138854348,
-138962919,
-138962923,
-139024060,
-139275010,
-138531432,
-138622218,
-138670719,
-138705808,
-138819956,
-138945680,
-138973668,
-139241462,
-138553494,
-138666933,
-138755955,
-138815073,
-138833200,
-138930001,
-138971574,
-139046381,
-138692797,
-138793539,
-138841442,
-139049266,
-139059479,
-139062107,
-139130762,
-139264964,
-139264966,
-139266352,
-139267419,
-139269692,
-139269694,
-139275103,
-138578200,
-138751746,
-138756553,
-138777807,
-139180678,
-139187525,
-138641664,
-138699396,
-138929985,
-138977104,
-139000481,
-139205093,
-138676512,
-138761861,
-138794427,
-138815722,
-138815726,
-138835626,
-138481492,
-138588983,
-138665803,
-138683767,
-138776255,
-138981854,
-139014937,
-139187338,
-139258731,
-138525839,
-138634261,
-138862332,
-138638156,
-138705490,
-139261388,
-138817672,
-139021383,
-139023070,
-138847541,
-139009129,
-139258725,
-138919955,
-139139009,
-139163024,
-138985932,
-139055642,
-139055644,
-139264475,
-139269906,
-139274313,
-138469170,
-138503368,
-138470456,
-138868425,
-138476417,
-138896526,
-138518691,
-138835784,
-138527381,
-138663726,
-138562750,
-138573920,
-138641453,
-139108364,
-138677346,
-138977675,
-138686587,
-138971854,
-138723974,
-138964576,
-138926629,
-138968754,
-139000737,
-139063205,
-139028939,
-139111656,
-139117915,
-139177023,
-139131016,
-139203999,
-138580670,
-138632758,
-138754721,
-138787059,
-138825643,
-138875000,
-138876315,
-138876905,
-138882209,
-138897485,
-138921271,
-138934699,
-138955959,
-138982035,
-139028171,
-139080469,
-139082427,
-139263174,
-    ]
+    # # swap_token_by_name('БелотеловАГ')
+    # orders_and_article = get_dict_of_unique_orders_and_article()
+    # # orders = get_dict_of_unique_orders_and_article()
+    # article_and_count = {}
+    # for order in orders_and_article.keys():
+    #     article = orders_and_article[order]
+    #     if not article in article_and_count:
+    #         article_and_count[article] = 1
+    #     else:
+    #         article_and_count[article] += 1
+
+
+    # create_finall_table_of_day()
+    print(get_today_nmid_and_count())
+
+    # date_end = get_now_time()
+    # orders = []
+    # ids = get_dict_of_unique_orders_and_article().keys()
+    # print(ids)
+    # date_end = get_now_time()
+    # orders = []
+    # for id in ids:
+    #     date_start = '2021-11-06T00:47:17.528082+00:00'
+
+    #     params = {
+    #         'date_end': date_end,
+    #         'date_start': date_start,
+    #         'status': 2,
+    #         'take': 100,
+    #         'skip': 0,
+    #         'id': id
+    #     }
+    #     response = requests.get(
+    #         base_url_for_getting_orders,
+    #         headers=headers,
+    #         params=params)
+    #     try:
+    #         orders_from_current_response = response.json()['orders']
+    #     except KeyError as e:
+    #         logging.error(e, exc_info=True)
+    #     orders += orders_from_current_response
+    #     logging.info(f'Получено {len(orders)}')
+    # orders = sorted(orders, key=lambda x: x['barcode'])
+    # barcodes = get_barcodes_with_full_info(orders)
+    # # create_pdf_stickers_by_barcodes(barcodes)
+    # with open('barcodes.json','w', encoding='utf-8') as f:
+    #     json.dump(barcodes, f,ensure_ascii=False)
+    # add_json_file_to_today_json('barcodes.json')
+    # create_pdf_stickers_by_barcodes(barcodes)
+    # create_db_for_checking(barcodes)
+    
+
+
+    # with open('barcodes.json','w', encoding='utf-8') as f:
+    #     json.dump(barcodes, f,ensure_ascii=False)
+    # add_json_file_to_today_json('barcodes.json')
+    # create_pdf_stickers_by_barcodes(barcodes)
+  
     # create_stickers()
     # orders =get_all_orders(status=1)
     
@@ -1353,15 +981,7 @@ if __name__ == '__main__':
     # print(len(orders_id))
     # create_stickers_by_id()
 
-    orders = get_all_orders(status=1)
-    print(len(orders))
-    orders = [order for order in orders if int(order['orderId']) not in blacklist]
-    print(len(orders))
-    barcodes = get_barcodes_with_full_info(orders)
-    with open('barcodes.json','w', encoding='utf-8') as f:
-        json.dump(barcodes, f,ensure_ascii=False)
-    add_json_file_to_today_json('barcodes.json')
-    create_pdf_stickers_by_barcodes(barcodes)
+
     # return (len(orders), barcodes)
 
 

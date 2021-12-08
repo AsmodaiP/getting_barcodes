@@ -60,6 +60,8 @@ TEXT_UPDATE_TABLE = 'Обновить таблицу'
 TEXT_STATS = 'Статистика'
 TEXT_TOP = 'Топ артикулов по количеству'
 TEXT_SWAP_CLIENT = 'Сменить аккаунт'
+TEXT_CLOSE_SUPPLIE = 'Закрыть поставку'
+TEXT_ADD_ORDERS_TO_SUPPLIE = 'Добавить заказы к поставке'
 
 whitelistid = (1617188356, 1126541068, 482957060, 172902983)
 
@@ -79,6 +81,7 @@ def start(update, _):
     # user = update.message.from_user
     main_menu_keyboard = (
         [KeyboardButton(TEXT_TO_CREATE_STICKERS), KeyboardButton(TEXT_TOP)],
+        [KeyboardButton(TEXT_CLOSE_SUPPLIE), KeyboardButton(TEXT_ADD_ORDERS_TO_SUPPLIE)],
         [KeyboardButton(TEXT_TO_PUT_ON_ASSEMBLY_BY_COUNT),KeyboardButton(TEXT_SWAP_CLIENT), KeyboardButton(TEXT_TO_PUT_ON_ASSEMBLY_BY_ARTICLE)],
         [KeyboardButton(TEXT_TO_PUT_ON_COLLECTED)],
         [KeyboardButton(TEXT_UPDATE_TABLE), KeyboardButton(TEXT_STATS)]
@@ -330,6 +333,60 @@ swap_client_handler = ConversationHandler(
     },
     fallbacks=[CommandHandler('cancel', cancel)])
 
+def close_supplie_by_bot(bot, update):
+    try:
+        supplie = bot.message.text.strip()
+        print(supplie)
+        result = create_stickers_and_db.close_supplie(supplie)
+        print(result)
+        if result is None:
+            bot.message.reply_text(f'Поставка {supplie} закрыта')
+        else:
+            bot.message.reply_text(f'Что-то пошло не так, вб написал, что {result}')
+    except:
+        bot.message.reply_text(f'Что-то пошло не так, попробуйте еще раз, проверив данные')
+    return ConversationHandler.END
+
+def get_supplie_from_user(bot, update):
+    bot.message.reply_text('Введите ID поставки\n для отмены /cancel')
+    return 'get_supplie_from_user'
+
+close_supplie_handler = ConversationHandler(
+    entry_points=[MessageHandler(Filters.text(['Закрыть поставку']), get_supplie_from_user)],
+    states={
+        'get_supplie_from_user':  [MessageHandler(Filters.text & ~Filters.command, close_supplie_by_bot)]
+    },
+    fallbacks=[CommandHandler('cancel', cancel)])
+
+updater.dispatcher.add_handler(close_supplie_handler)
+
+def add_orders_to_supplie_by_bot(bot, update):
+    try:
+        supplie = bot.message.text.strip()
+        orders = create_stickers_and_db.get_all_orders(status=1)
+        if len(orders)==0:
+            bot.message.reply_text(f'На сборке ноль заказов, добавлять нечего')
+            return ConversationHandler.END
+
+        result = create_stickers_and_db.add_orders_to_supplie(supplie, orders)
+        if result == 200:
+            bot.message.reply_text(f'Okey')
+        else:
+            bot.message.reply_text(f'Что-то пошло не так, вб написал, что {result}')
+        return ConversationHandler.END
+    except:
+        bot.message.reply_text(f'Что-то пошло не так, попробуйте еще раз, проверив данные')
+    return ConversationHandler.END
+
+add_orders_to_supplie_handler = ConversationHandler(
+    entry_points=[MessageHandler(Filters.text([TEXT_ADD_ORDERS_TO_SUPPLIE]), get_supplie_from_user)],
+    states={
+        'get_supplie_from_user':  [MessageHandler(Filters.text & ~Filters.command, add_orders_to_supplie_by_bot)]
+    },
+    fallbacks=[CommandHandler('cancel', cancel)])
+
+updater.dispatcher.add_handler(add_orders_to_supplie_handler)
+
 def swap_client_in_json_by_bot(bot, update):
     id = bot['message']['chat']['id']
     client = bot.message.text.strip()
@@ -350,7 +407,6 @@ def get_client_info_by_telegram_id(id):
     client_db = json.load(open('credentials.json', 'rb'))
     return client_db[client]
 
-print(get_client_info_by_telegram_id(22))
 
 updater.dispatcher.add_handler(swap_client_handler)
 
