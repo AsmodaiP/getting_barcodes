@@ -6,3 +6,6 @@
 /pdf
 *.xlsx
 *.json
+*.svg
+*.log
+/__pycache__

@@ -26,6 +26,7 @@ from openpyxl.formatting import Rule
 from openpyxl.styles.differential import DifferentialStyle
 from openpyxl.formatting.rule import CellIsRule
 from openpyxl.formatting.rule import ColorScaleRule, CellIsRule, FormulaRule
+from time import sleep
 pdfmetrics.registerFont(TTFont('FreeSans', 'fonts/FreeSans.ttf'))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 log_dir = os.path.join(BASE_DIR, 'logs/')
@@ -73,6 +74,10 @@ headers = {
 cred = json.load(open('credentials.json', 'rb'))
 TOKEN = cred['БелотеловАГ']['token']
 NAME = cred['БелотеловАГ']['name']
+headers = {
+    'Authorization': TOKEN,
+}
+
 
 def create_all_today_path():
     pdf_path = os.path.join(BASE_DIR, 'pdf/')
@@ -90,10 +95,8 @@ def create_all_today_path():
         'backup_dir': backup_dir,
         'json_dir': json_dir,
         'today_prefix_path': today_prefix_path,
-        'today_path_with_name':today_path_with_name
+        'today_path_with_name': today_path_with_name
     }
-
-
 
 
 MEDIUM_BORDER = Border(left=Side(style='medium'),
@@ -134,7 +137,7 @@ def create_pdf_stickers_by_ids(ids):
 
 def get_all_orders(status=0, date_end=get_now_time(), date_start='2021-11-06T00:47:17.528082+00:00'):
     logging.info(f'Получение всех заказов со статусом {status}')
-    date_end=get_now_time()
+    date_end = get_now_time()
     orders = []
     params = {
         'date_end': date_end,
@@ -254,6 +257,7 @@ def get_StickerEncoded_by_orderId(id):
 
 
 def create_and_merge_pdf_by_barcodes_and_ids(barcodes_and_ids):
+
     logging.info('Создание pdf для баркодов')
     results_files = []
     url_for_getting_stikers = 'https://suppliers-api.wildberries.ru/api/v2/orders/stickers/pdf'
@@ -280,17 +284,52 @@ def create_and_merge_pdf_by_barcodes_and_ids(barcodes_and_ids):
         json_orders_id = {
             "orderIds": orders
         }
-        response = requests.post(
+        start = 0
+        end = 1000
+        while orders[start:end] != []:
+            json_orders_id = {
+                "orderIds": orders[start:end]
+            }
+            response = requests.post(
                 url_for_getting_stikers,
                 json=json_orders_id,
                 headers=headers)
-        data_for_pdf = response.json()['data']['file']
-        file_data = bytes(data_for_pdf, 'utf-8')
-        today_path_with_name = create_all_today_path()['today_path_with_name']
-        path = os.path.join(today_path_with_name, f'{barcode}.pdf')
-        with open(path, 'wb') as f:
-            f.write(codecs.decode(file_data, 'base64'))
-        pdfs += [path]
+            data_for_pdf = response.json()['data']['file']
+            while len(data_for_pdf) < 1105:
+                response = requests.post(
+                    url_for_getting_stikers,
+                    json=json_orders_id,
+                    headers=headers)
+                data_for_pdf = response.json()['data']['file']
+
+            file_data = bytes(data_for_pdf, 'utf-8')
+            today_path_with_name = create_all_today_path()[
+                'today_path_with_name']
+            path = os.path.join(today_path_with_name, f'{barcode}_{end}.pdf')
+            with open(path, 'wb') as f:
+                f.write(codecs.decode(file_data, 'base64'))
+            start += 1000
+            end += 1000
+            pdfs += [path]
+
+        # response = requests.post(
+        #         url_for_getting_stikers,
+        #         json=json_orders_id,
+        #         headers=headers)
+        # data_for_pdf = response.json()['data']['file']
+        # while len(data_for_pdf) <1105:
+        #         response = requests.post(
+        #         url_for_getting_stikers,
+        #         json=json_orders_id,
+        #         headers=headers)
+        #         data_for_pdf = response.json()['data']['file']
+        # file_data = bytes(data_for_pdf, 'utf-8')
+        # today_path_with_name = create_all_today_path()['today_path_with_name']
+        # path = os.path.join(today_path_with_name, f'{barcode}.pdf')
+        # with open(path, 'wb') as f:
+        #     f.write(codecs.decode(file_data, 'base64'))
+        # pdfs += [path]
+
         for pdf in pdfs:
             merger.append(pdf)
         path_for_result_of_barcode = os.path.join(
@@ -300,7 +339,6 @@ def create_and_merge_pdf_by_barcodes_and_ids(barcodes_and_ids):
         merger.close()
         logging.info(f'Создано pdf для баркода {barcode}')
     return results_files
-
 
 
 def create_pdf_stickers_by_barcodes(barcodes_and_ids):
@@ -382,8 +420,8 @@ def getting_information_about_barcode_by_chartId(chrtId):
     name = ''
     nomenclature_data, article, nomenclature = get_data_nomenclature_from_card_by_chrtId(
         good, int(chrtId))
-    article =  supplierVendorCode + article 
-    nmid=nomenclature['nmId']
+    article = supplierVendorCode + article
+    nmid = nomenclature['nmId']
     size = ''
     color = ''
     extra_colors = ''
@@ -460,7 +498,7 @@ def create_db_for_checking(barcodes):
     sheet['C1'] = 'Наименование'
     sheet['D1'] = 'Баркод'
     sheet['E1'] = 'Stick'
-    sheet.protection.sheet=True
+    sheet.protection.sheet = True
     sheet.protection.set_password('osdfjl2')
     sheet.protection.enable()
 
@@ -482,8 +520,7 @@ def create_db_for_checking(barcodes):
             sheet[f'L{row}'] = f'=IF(ISERROR(INDEX(D:D,MATCH(J{row},E:E,0),1)),"",INDEX(D:D,MATCH(J{row},E:E,0),1))'
             row += 1
 
-    # book.create_sheet("Итог")
-    book.active = 1                                                     
+    book.active = 1
     sheet = book.active
     sheet['A1'] = 'Артикул'
     sheet['A1'].border = THIN_BORDER
@@ -492,7 +529,7 @@ def create_db_for_checking(barcodes):
     sheet['C1'] = 'Собрано'
     sheet['B1'].border = THIN_BORDER
     row = 2
-    sheet.protection.sheet=True
+    sheet.protection.sheet = True
     sheet.protection.set_password('osdfjl2')
     sheet.protection.enable()
     for article in article_counts.keys():
@@ -518,51 +555,57 @@ def create_db_for_checking(barcodes):
     cell = sheet.cell(row=row, column=3)
     cell.value = f'=SUM(C2:C{row-1})'
     cell.border = THIN_BORDER
-    
-    green_fill=PatternFill(bgColor="a0db8e")
-    sheet.conditional_formatting.add('C1:C3000',FormulaRule(formula=['IF(AND(C1=B1, C1<>""),True,False)'], stopIfTrue=True, fill=green_fill))
- 
+
+    green_fill = PatternFill(bgColor="a0db8e")
+    sheet.conditional_formatting.add('C1:C3000', FormulaRule(
+        formula=['IF(AND(C1=B1, C1<>""),True,False)'], stopIfTrue=True, fill=green_fill))
+
     book.active = 2
     sheet = book.active
     red_fill = PatternFill(bgColor="FFC7CE")
 
-    sheet.conditional_formatting.add('B1:B3000',FormulaRule(formula=['IF(B1="Ошибка",True,False)'], stopIfTrue=True, fill=red_fill))
+    sheet.conditional_formatting.add('B1:B3000', FormulaRule(
+        formula=['IF(B1="Ошибка",True,False)'], stopIfTrue=True, fill=red_fill))
 
     row = 2
     sheet['A1'] = 'Данные'
     sheet['B1'] = 'Результат'
     sheet['D1'] = 'Артикул'
-    sheet.protection.sheet=True
+    sheet.protection.sheet = True
     sheet.protection.enable()
     for barcode in barcodes_and_stickers.keys():
         barcode_info = barcodes_and_stickers[barcode]
         for order in barcode_info.keys():
             for i in range(2):
-                if row % 2 == 0: 
+                if row % 2 == 0:
                     # =IF(AND(ISERROR(MATCH(A3,C2,0)),A2<>"",A3<>""),"Ошибка","")
+                    sheet[f'A{row}'].border = Border(left=Side(style='medium'), right=Side(
+                        style='thin'), top=Side(style='medium'), bottom=Side(style='thin'))
                     sheet[f'B{row}'] = f'=IF(AND(ISERROR(MATCH(A{row+1},C{row},0)),A{row}<>"",A{row+1}<>""),"Ошибка","")'
+                    sheet[f'B{row}'].border = Border(left=Side(style='thin'), right=Side(
+                        style='medium'), top=Side(style='medium'), bottom=Side(style='medium'))
                     sheet[f'C{row}'] = f'=IF(ISERROR(INDEX(Sheet!D:D,MATCH(A{row},Sheet!E:E,0),1)),"",INDEX(Sheet!D:D,MATCH(A{row},Sheet!E:E,0),1))'
                 else:
+                    sheet[f'A{row}'].border = Border(left=Side(style='thin'), right=Side(
+                        style='medium'), top=Side(style='thin'), bottom=Side(style='medium'))
                     sheet[f'D{row}'] = f'=IF(AND(B{row-1}<>"Ошибка", A{row-1}<>""),INDEX(Sheet!B:B, MATCH(A{row},Sheet!D:D,0),1), "")'
                 sheet[f'A{row}'].number_format = '@'
                 sheet[f'A{row}'].protection = Protection(locked=False)
                 row += 1
     for column in ['C', 'D']:
         for cell in sheet[column]:
-            cell.font= Font(color='Ffffffff')
+            cell.font = Font(color='Ffffffff')
     book.save('db.xlsx')
     book.close()
 
 
 def check_and_delete_orders_with_blank_officeAddress(orders):
     logging.info('Производится отчистка от заказов без адреса')
-    count = 0 
+    count = 0
     for order in orders:
         if order['officeAddress'] == "":
             count += 1
-            # logging.info(f'Удален заказ {order["orderId"]}')
             orders.remove(order)
-    # logging.info(f'Осталось {len(orders)}')
 
     return (orders, count)
 
@@ -570,18 +613,19 @@ def check_and_delete_orders_with_blank_officeAddress(orders):
 def set_status_to_orders_by_ids(status, ids):
     url_for_set_status = 'https://suppliers-api.wildberries.ru/api/v2/orders'
     data_for_bulk_set_status = []
-    
+
     for id in ids:
         data_for_bulk_set_status += [{
             "orderId": str(id),
             "status": int(status)
         }]
-        
-        # response = requests.put(url_for_set_status, headers=headers, data=js)
-        # print(response.content)
+
     js = json.dumps(data_for_bulk_set_status)
     response = requests.put(url_for_set_status, headers=headers, data=js)
+    print(response.content.decode('utf-8'))
+    print(ids)
     # for ord
+
 
 def set_status_to_orders(status, orders):
     url_for_set_status = 'https://suppliers-api.wildberries.ru/api/v2/orders'
@@ -591,11 +635,6 @@ def set_status_to_orders(status, orders):
             "orderId": order["orderId"],
             "status": int(status)
         }]
-    # for order in orders:
-    #     data_for_set_status = [{
-    #         "orderId": order["orderId"],
-    #         "status": int(status)
-    #     }]
     js = json.dumps(data_for_bulk_set_status)
     response = requests.put(url_for_set_status, headers=headers, data=js)
 
@@ -610,10 +649,10 @@ def get_barcodes_with_full_info(orders):
 def create_stickers():
     orders = get_all_orders(status=1)
     if len(orders) == 0:
-        return (0,0)
+        return (0, 0)
     barcodes = get_barcodes_with_full_info(orders)
-    with open('barcodes.json','w', encoding='utf-8') as f:
-        json.dump(barcodes, f,ensure_ascii=False)
+    with open('barcodes.json', 'w', encoding='utf-8') as f:
+        json.dump(barcodes, f, ensure_ascii=False)
     add_json_file_to_today_json('barcodes.json')
     create_pdf_stickers_by_barcodes(barcodes)
     return (len(orders), barcodes)
@@ -627,8 +666,6 @@ def filter_orders_by_barcode(orders, barcode):
     logging.info(
         f'Получено {len(filtered_barcodes)} заказов с баркодом = {barcode}')
     return filtered_barcodes
-
-
 
 
 def sorted_barcodes_by_count_of_orders(barcodes):
@@ -646,25 +683,22 @@ def set_status_collected_for_all_on_assembly():
 
 
 def sorted_by_barcode_set_status_on_assembly(barcode, limit):
-    # orders_with_status_1 = get_all_orders(status=1)
-    # if get_all_orders(status=1) != []:
-    #     limit = limit-len(orders_with_status_1)
-    #     return 0
     orders = get_all_orders(status=0)
     orders = filter_orders_by_barcode(orders, barcode)[:limit]
-    print(orders)
-    print(len(orders))
     set_status_to_orders(1, orders)
+
 
 def set_status_on_assmebly_by_limit_and_date(limit=350):
     orders = get_all_orders(status=0)
     orders = orders[-limit:]
     set_status_to_orders(1, orders)
 
+
 def set_status_on_assmebly_by_limit(limit=350):
     orders = get_all_orders(status=0)
     orders = orders[:limit]
     set_status_to_orders(1, orders)
+
 
 def create_stickers_by_id(ids):
     date_end = get_now_time()
@@ -705,11 +739,13 @@ def get_start_and_end_of_current_day():
     end = start + datetime.timedelta(1)
     return (start.replace(tzinfo=pytz.UTC).isoformat(), end.replace(tzinfo=pytz.UTC).isoformat())
 
+
 def add_json_file_to_today_json(path_to_json_file):
     json_dir = create_all_today_path()['json_dir']
     filename = 'barcodes_%s.json' % datetime.datetime.now().strftime('%H%M')
     path_to_backup_file = os.path.join(json_dir, filename)
     shutil.copyfile(path_to_json_file, path_to_backup_file)
+
 
 def add_results_file_to_today_backup(path_to_results_file):
     backup_dir = create_all_today_path()['backup_dir']
@@ -726,14 +762,17 @@ def get_list_of_relative_path_to_all_today_results():
             list_of_files.append(os.path.relpath((os.path.join(root, file))))
     return list_of_files
 
+
 def get_list_of_relative_path_to_all_today_json():
     list_of_files = []
     json_dir = create_all_today_path()['json_dir']
     for root, directories, files in os.walk(json_dir):
         for file in files:
             if file != 'result_fbs.json':
-                list_of_files.append(os.path.relpath((os.path.join(root, file))))
+                list_of_files.append(os.path.relpath(
+                    (os.path.join(root, file))))
     return list_of_files
+
 
 def get_list_of_relative_path_to_all_logs():
     list_of_files = []
@@ -751,10 +790,10 @@ def get_dict_of_unique_orders_and_article():
             data = json.load(f)
             for barcode in data.keys():
                 orders = data[barcode]['orders']
-                # print(orders)
                 for order in orders:
                     order_and_article_dict[order] = data[barcode]['info']['article']
     return order_and_article_dict
+
 
 def get_dict_of_unique_orders_and_nmid():
     list_of_json = get_list_of_relative_path_to_all_today_json()
@@ -764,10 +803,10 @@ def get_dict_of_unique_orders_and_nmid():
             data = json.load(f)
             for barcode in data.keys():
                 orders = data[barcode]['orders']
-                # print(orders)
                 for order in orders:
                     order_and_nmid_dict[order] = data[barcode]['info']['nmid']
     return order_and_nmid_dict
+
 
 def get_dict_of_unique_orders_and_nmid():
     list_of_json = get_list_of_relative_path_to_all_today_json()
@@ -777,10 +816,10 @@ def get_dict_of_unique_orders_and_nmid():
             data = json.load(f)
             for barcode in data.keys():
                 orders = data[barcode]['orders']
-                # print(orders)
                 for order in orders:
                     order_and_article_dict[order] = data[barcode]['info']['nmid']
     return order_and_article_dict
+
 
 def get_today_article_and_count():
     orders_and_article = get_dict_of_unique_orders_and_article()
@@ -793,6 +832,7 @@ def get_today_article_and_count():
             article_and_count[article] += 1
     return article_and_count
 
+
 def get_today_nmid_and_count():
     orders_and_article = get_dict_of_unique_orders_and_nmid()
     article_and_count = {}
@@ -804,12 +844,14 @@ def get_today_nmid_and_count():
             article_and_count[article] += 1
     return article_and_count
 
+
 def create_finall_table_of_day():
     logging.info('Получение артикулов и количества заказов для них')
     article_and_count = get_today_nmid_and_count()
-    
+
     json_dir = create_all_today_path()['json_dir']
-    path_for_saving_aricle_and_count_dict = os.path.join(json_dir,'result_fbs.json')
+    path_for_saving_aricle_and_count_dict = os.path.join(
+        json_dir, 'result_fbs.json')
     with open(path_for_saving_aricle_and_count_dict, 'w') as f:
         json.dump(article_and_count, f)
     book = openpyxl.Workbook()
@@ -842,6 +884,7 @@ def create_finall_table_of_day():
     book.close()
     return file_path
 
+
 def get_orderId_and_sticker_encoded(ids):
     url = 'https://suppliers-api.wildberries.ru/api/v2/orders/stickers'
     json_order_id = {
@@ -852,23 +895,30 @@ def get_orderId_and_sticker_encoded(ids):
         json=json_order_id,
         headers=headers)
     order_and_sticker_encoded = {}
+    data = response.json()['data']
+    while len(data) == 0:
+        response = requests.post(
+            url,
+            json=json_order_id,
+            headers=headers)
+        data = response.json()['data']
+
     for order in response.json()['data']:
         order_and_sticker_encoded[order['orderId']
                                   ] = order['sticker']['wbStickerEncoded']
     return order_and_sticker_encoded
 
+
 def filter_orders_by_article(articles, count):
     orders = get_all_orders(status=0)
     barcodes = get_barcodes_with_full_info(orders)
     filtered_orders = []
-    for barcode in barcodes: 
+    for barcode in barcodes:
         if (barcodes[barcode]['info']['article'] in articles) and (len(filtered_orders) <= count):
             filtered_orders += barcodes[barcode]['orders']
     return filtered_orders[:count]
 
-# def set_status_on_assembly_by_article_and_limit(article, limit):
-#     orders = filter_orders_by_article(article)
-#     set_status_to_orders(1, orders)
+
 
 def swap_token_by_name(name):
     global TOKEN
@@ -882,10 +932,12 @@ def swap_token_by_name(name):
     }
     create_all_today_path()
 
+
 def get_name():
     return NAME
 
-def close_supplie(supplie_id:str):
+
+def close_supplie(supplie_id: str):
     URL_FOR_CLOSING_SUPPLIE = f'https://suppliers-api.wildberries.ru/api/v2/supplies/{supplie_id}/close'
     response = requests.post(URL_FOR_CLOSING_SUPPLIE, headers=headers)
     if response.status_code == 200:
@@ -898,158 +950,28 @@ def add_orders_to_supplie(supplie_id, orders):
         order_ids = [order['orderId'] for order in orders]
         return add_orders_to_supplie_by_id(supplie_id, order_ids)
     except:
-        return 'Что-то пошло не так' 
+        return 'Что-то пошло не так'
+
 
 def add_orders_to_supplie_by_id(supplie_id, orders_ids):
-    data = {'orders':orders_ids}
+    data = {'orders': orders_ids}
     js = json.dumps(data)
     URL_FOR_ADD_ORDERS_TO_SUPPLIE = f'https://suppliers-api.wildberries.ru/api/v2/supplies/{supplie_id}'
-    response = requests.put(URL_FOR_ADD_ORDERS_TO_SUPPLIE, headers=headers, data=js)
+    response = requests.put(
+        URL_FOR_ADD_ORDERS_TO_SUPPLIE, headers=headers, data=js)
 
     if response.status_code != 200:
         return 200
     else:
         return response.json()['errorText']
 
+
 if __name__ == '__main__':
-    # # swap_token_by_name('БелотеловАГ')
-    # orders_and_article = get_dict_of_unique_orders_and_article()
-    # # orders = get_dict_of_unique_orders_and_article()
-    # article_and_count = {}
-    # for order in orders_and_article.keys():
-    #     article = orders_and_article[order]
-    #     if not article in article_and_count:
-    #         article_and_count[article] = 1
-    #     else:
-    #         article_and_count[article] += 1
+    orders = [{'orderId': '122781838', 'dateCreated': '2021-11-15T15:17:59.781585Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 105208, 'officeAddress': 'г. Минск, Нёманская улица, д. 3', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 49128284, 'fio': 'Ерохова Софи ', 'phone': 375445626556}, 'chrtId': 47301927, 'barcode': '2000716391117', 'barcodes': ['2000716391117'], 'status': 1, 'userStatus': 4, 'rid': '300032806170', 'totalPrice': 119200, 'orderUID': '33564142053472337_6f35efb6172b4f31829736e919f810c0', 'deliveryType': 1}, {'orderId': '122628081', 'dateCreated': '2021-11-15T11:50:10.977447Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 103020, 'officeAddress': 'г. Ершов (Саратовская область), Калинина улица, д. 14', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 36211346, 'fio': 'Шохман Виктория Васильевна', 'phone': 79962668271}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429578873', 'totalPrice': 74000, 'orderUID': '27105673053466093_3760b85a04c841fba7095f46aee69498', 'deliveryType': 1}, {'orderId': '122629163', 'dateCreated': '2021-11-15T11:51:44.990127Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 101816, 'officeAddress': 'г. Светлоград (Ставропольский край), Выставочная площадь, д. 8А', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 21141322, 'fio': 'Надоленская Екатерина Анатольевна', 'phone': 79887373561}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429584281', 'totalPrice': 74000, 'orderUID': '19570661053466151_c7886ca43fd643e8a0637dcd0ae99e9b', 'deliveryType': 1}, {'orderId': '122632289', 'dateCreated': '2021-11-15T11:56:00.336669Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 17533, 'officeAddress': 'г. Минеральные Воды (Ставропольский край), улица 50 лет Октября, д. 51', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 23705659, 'fio': 'Сафронова Екатерина Владимировна', 'phone': 79289558635}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '51010909603', 'totalPrice': 74000, 'orderUID': '20852829553466279_947a5cfe80d64b09ad87c5d140ae9acb', 'deliveryType': 1}, {'orderId': '122636095', 'dateCreated': '2021-11-15T12:01:25.042171Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 13593, 'officeAddress': 'г. Благовещенск (Амурская область), Амурская улица, д. 230', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 5652279, 'fio': 'Шаруда Татьяна Николаевна', 'phone': 79140619074}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429611018', 'totalPrice': 85100, 'orderUID': '11826139553466430_0c70ee11e57f4bf1b8e97f4df05c6836', 'deliveryType': 1}, {'orderId': '122636702', 'dateCreated': '2021-11-15T12:02:15.182189Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 0, 'officeAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddressDetails': {'province': 'Республика Хакасия', 'area': 'Таштыпский район', 'city': 'село Таштып', 'street': 'улица Луначарского', 'home': '1', 'flat': '20', 'entrance': '2', 'longitude': 89.887835, 'latitude': 52.800433}, 'userInfo': {'userId': 44171800, 'fio': 'Султрекова Владлена Александровна', 'phone': 79833771263}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429613160', 'totalPrice': 74000, 'orderUID': '31085900053466455_d7530eb8638e4807b5e38b8c8cccee4f', 'deliveryType': 1}, {'orderId': '122636713', 'dateCreated': '2021-11-15T12:02:15.185581Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 0, 'officeAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddressDetails': {
+        'province': 'Республика Хакасия', 'area': 'Таштыпский район', 'city': 'село Таштып', 'street': 'улица Луначарского', 'home': '1', 'flat': '20', 'entrance': '2', 'longitude': 89.887835, 'latitude': 52.800433}, 'userInfo': {'userId': 44171800, 'fio': 'Султрекова Владлена Александровна', 'phone': 79833771263}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429613162', 'totalPrice': 74000, 'orderUID': '31085900053466455_d7530eb8638e4807b5e38b8c8cccee4f', 'deliveryType': 1}, {'orderId': '122636712', 'dateCreated': '2021-11-15T12:02:15.225256Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 0, 'officeAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddressDetails': {'province': 'Республика Хакасия', 'area': 'Таштыпский район', 'city': 'село Таштып', 'street': 'улица Луначарского', 'home': '1', 'flat': '20', 'entrance': '2', 'longitude': 89.887835, 'latitude': 52.800433}, 'userInfo': {'userId': 44171800, 'fio': 'Султрекова Владлена Александровна', 'phone': 79833771263}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429613161', 'totalPrice': 74000, 'orderUID': '31085900053466455_d7530eb8638e4807b5e38b8c8cccee4f', 'deliveryType': 1}, {'orderId': '122636714', 'dateCreated': '2021-11-15T12:02:15.226511Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 0, 'officeAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddressDetails': {'province': 'Республика Хакасия', 'area': 'Таштыпский район', 'city': 'село Таштып', 'street': 'улица Луначарского', 'home': '1', 'flat': '20', 'entrance': '2', 'longitude': 89.887835, 'latitude': 52.800433}, 'userInfo': {'userId': 44171800, 'fio': 'Султрекова Владлена Александровна', 'phone': 79833771263}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429613159', 'totalPrice': 74000, 'orderUID': '31085900053466455_d7530eb8638e4807b5e38b8c8cccee4f', 'deliveryType': 1}, {'orderId': '122637253', 'dateCreated': '2021-11-15T12:03:09.553869Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 13593, 'officeAddress': 'г. Благовещенск (Амурская область), Амурская улица, д. 230', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 5652279, 'fio': 'Шаруда Татьяна Николаевна', 'phone': 79140619074}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429615599', 'totalPrice': 85100, 'orderUID': '11826139553466480_e62a90a5e8604316b5baf88998e25d6a', 'deliveryType': 1}, {'orderId': '122639643', 'dateCreated': '2021-11-15T12:06:25.053558Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 16642, 'officeAddress': 'г. Ульяновск (Ульяновская область), улица Шолмова, д. 37А', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 33549544, 'fio': 'Чижова Светлана Юрьевна', 'phone': 79278258162}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429621668', 'totalPrice': 74000, 'orderUID': '25774772053466543_111fcebda91d4446a32075d017d3615f', 'deliveryType': 1}, {'orderId': '122639642', 'dateCreated': '2021-11-15T12:06:25.053652Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 16642, 'officeAddress': 'г. Ульяновск (Ульяновская область), улица Шолмова, д. 37А', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 33549544, 'fio': 'Чижова Светлана Юрьевна', 'phone': 79278258162}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429621667', 'totalPrice': 74000, 'orderUID': '25774772053466543_111fcebda91d4446a32075d017d3615f', 'deliveryType': 1}]
+    barcodes = get_barcodes_with_full_info(orders)
+    with open('barcodes.json', 'w', encoding='utf-8') as f:
+        json.dump(barcodes, f, ensure_ascii=False)
+    add_json_file_to_today_json('barcodes.json')
+    create_pdf_stickers_by_barcodes(barcodes)
 
-
-    # create_finall_table_of_day()
-    print(get_today_nmid_and_count())
-
-    # date_end = get_now_time()
-    # orders = []
-    # ids = get_dict_of_unique_orders_and_article().keys()
-    # print(ids)
-    # date_end = get_now_time()
-    # orders = []
-    # for id in ids:
-    #     date_start = '2021-11-06T00:47:17.528082+00:00'
-
-    #     params = {
-    #         'date_end': date_end,
-    #         'date_start': date_start,
-    #         'status': 2,
-    #         'take': 100,
-    #         'skip': 0,
-    #         'id': id
-    #     }
-    #     response = requests.get(
-    #         base_url_for_getting_orders,
-    #         headers=headers,
-    #         params=params)
-    #     try:
-    #         orders_from_current_response = response.json()['orders']
-    #     except KeyError as e:
-    #         logging.error(e, exc_info=True)
-    #     orders += orders_from_current_response
-    #     logging.info(f'Получено {len(orders)}')
-    # orders = sorted(orders, key=lambda x: x['barcode'])
-    # barcodes = get_barcodes_with_full_info(orders)
-    # # create_pdf_stickers_by_barcodes(barcodes)
-    # with open('barcodes.json','w', encoding='utf-8') as f:
-    #     json.dump(barcodes, f,ensure_ascii=False)
-    # add_json_file_to_today_json('barcodes.json')
-    # create_pdf_stickers_by_barcodes(barcodes)
-    # create_db_for_checking(barcodes)
-    
-
-
-    # with open('barcodes.json','w', encoding='utf-8') as f:
-    #     json.dump(barcodes, f,ensure_ascii=False)
-    # add_json_file_to_today_json('barcodes.json')
-    # create_pdf_stickers_by_barcodes(barcodes)
-  
-    # create_stickers()
-    # orders =get_all_orders(status=1)
-    
-    # print(len(orders))
-    # orders_id = []
-    # # for order in orders:
-    # #     orders_id.append(orderp['orderId']])
-    # orders_id = [x['orderId'] for x in orders if int(x['orderId']) not in blacklist]
-    # print(len(orders_id))
-    # create_stickers_by_id()
-
-
-    # return (len(orders), barcodes)
-
-
-    # with open('fsdf.txt', 'w') as f:
-    #     print(orders_id, file=f)
-    # for order in orders:
-    #     if int(order['orderId']) in blacklist:
-    #         print(f'найдет {order["orderId"]}')
-    #         orders.remove(order)
-    # print(len(orders))
-    # baroces = get_barcodes_with_full_info(orders)
-    # print(baroces.items())
-    # а
-    # barcodes = sorted_barcodes_by_count_of_orders(barcodes)
-    # pass
-    # set_status_to_orders_by_ids(1,orders)
-
-    # sorted_by_barcode_set_status_on_assembly('2000790297008', 350)
-    # set_status_to_orders_by_ids(1,[str(132959439)])
-
-
-
-    # orders = get_all_orders(status=0)
-    # barcodes = get_barcodes_with_full_info(orders)
-    # for barcode in barcodes:
-    #     print(len(barcodes[barcode]['orders']), barcodes[barcode]['info']['article'])
-
-
-
-        # print()
-    # print(sys.path)
-    # orders = [{'orderId': '122781838', 'dateCreated': '2021-11-15T15:17:59.781585Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 105208, 'officeAddress': 'г. Минск, Нёманская улица, д. 3', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 49128284, 'fio': 'Ерохова Софи ', 'phone': 375445626556}, 'chrtId': 47301927, 'barcode': '2000716391117', 'barcodes': ['2000716391117'], 'status': 1, 'userStatus': 4, 'rid': '300032806170', 'totalPrice': 119200, 'orderUID': '33564142053472337_6f35efb6172b4f31829736e919f810c0', 'deliveryType': 1}, {'orderId': '122628081', 'dateCreated': '2021-11-15T11:50:10.977447Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 103020, 'officeAddress': 'г. Ершов (Саратовская область), Калинина улица, д. 14', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 36211346, 'fio': 'Шохман Виктория Васильевна', 'phone': 79962668271}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429578873', 'totalPrice': 74000, 'orderUID': '27105673053466093_3760b85a04c841fba7095f46aee69498', 'deliveryType': 1}, {'orderId': '122629163', 'dateCreated': '2021-11-15T11:51:44.990127Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 101816, 'officeAddress': 'г. Светлоград (Ставропольский край), Выставочная площадь, д. 8А', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 21141322, 'fio': 'Надоленская Екатерина Анатольевна', 'phone': 79887373561}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429584281', 'totalPrice': 74000, 'orderUID': '19570661053466151_c7886ca43fd643e8a0637dcd0ae99e9b', 'deliveryType': 1}, {'orderId': '122632289', 'dateCreated': '2021-11-15T11:56:00.336669Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 17533, 'officeAddress': 'г. Минеральные Воды (Ставропольский край), улица 50 лет Октября, д. 51', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 23705659, 'fio': 'Сафронова Екатерина Владимировна', 'phone': 79289558635}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '51010909603', 'totalPrice': 74000, 'orderUID': '20852829553466279_947a5cfe80d64b09ad87c5d140ae9acb', 'deliveryType': 1}, {'orderId': '122636095', 'dateCreated': '2021-11-15T12:01:25.042171Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 13593, 'officeAddress': 'г. Благовещенск (Амурская область), Амурская улица, д. 230', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 5652279, 'fio': 'Шаруда Татьяна Николаевна', 'phone': 79140619074}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429611018', 'totalPrice': 85100, 'orderUID': '11826139553466430_0c70ee11e57f4bf1b8e97f4df05c6836', 'deliveryType': 1}, {'orderId': '122636702', 'dateCreated': '2021-11-15T12:02:15.182189Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 0, 'officeAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddressDetails': {'province': 'Республика Хакасия', 'area': 'Таштыпский район', 'city': 'село Таштып', 'street': 'улица Луначарского', 'home': '1', 'flat': '20', 'entrance': '2', 'longitude': 89.887835, 'latitude': 52.800433}, 'userInfo': {'userId': 44171800, 'fio': 'Султрекова Владлена Александровна', 'phone': 79833771263}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429613160', 'totalPrice': 74000, 'orderUID': '31085900053466455_d7530eb8638e4807b5e38b8c8cccee4f', 'deliveryType': 1}, {'orderId': '122636713', 'dateCreated': '2021-11-15T12:02:15.185581Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 0, 'officeAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddressDetails': {'province': 'Республика Хакасия', 'area': 'Таштыпский район', 'city': 'село Таштып', 'street': 'улица Луначарского', 'home': '1', 'flat': '20', 'entrance': '2', 'longitude': 89.887835, 'latitude': 52.800433}, 'userInfo': {'userId': 44171800, 'fio': 'Султрекова Владлена Александровна', 'phone': 79833771263}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429613162', 'totalPrice': 74000, 'orderUID': '31085900053466455_d7530eb8638e4807b5e38b8c8cccee4f', 'deliveryType': 1}, {'orderId': '122636712', 'dateCreated': '2021-11-15T12:02:15.225256Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 0, 'officeAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddressDetails': {'province': 'Республика Хакасия', 'area': 'Таштыпский район', 'city': 'село Таштып', 'street': 'улица Луначарского', 'home': '1', 'flat': '20', 'entrance': '2', 'longitude': 89.887835, 'latitude': 52.800433}, 'userInfo': {'userId': 44171800, 'fio': 'Султрекова Владлена Александровна', 'phone': 79833771263}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429613161', 'totalPrice': 74000, 'orderUID': '31085900053466455_d7530eb8638e4807b5e38b8c8cccee4f', 'deliveryType': 1}, {'orderId': '122636714', 'dateCreated': '2021-11-15T12:02:15.226511Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 0, 'officeAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddressDetails': {'province': 'Республика Хакасия', 'area': 'Таштыпский район', 'city': 'село Таштып', 'street': 'улица Луначарского', 'home': '1', 'flat': '20', 'entrance': '2', 'longitude': 89.887835, 'latitude': 52.800433}, 'userInfo': {'userId': 44171800, 'fio': 'Султрекова Владлена Александровна', 'phone': 79833771263}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429613159', 'totalPrice': 74000, 'orderUID': '31085900053466455_d7530eb8638e4807b5e38b8c8cccee4f', 'deliveryType': 1}, {'orderId': '122637253', 'dateCreated': '2021-11-15T12:03:09.553869Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 13593, 'officeAddress': 'г. Благовещенск (Амурская область), Амурская улица, д. 230', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 5652279, 'fio': 'Шаруда Татьяна Николаевна', 'phone': 79140619074}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429615599', 'totalPrice': 85100, 'orderUID': '11826139553466480_e62a90a5e8604316b5baf88998e25d6a', 'deliveryType': 1}, {'orderId': '122639643', 'dateCreated': '2021-11-15T12:06:25.053558Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 16642, 'officeAddress': 'г. Ульяновск (Ульяновская область), улица Шолмова, д. 37А', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 33549544, 'fio': 'Чижова Светлана Юрьевна', 'phone': 79278258162}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429621668', 'totalPrice': 74000, 'orderUID': '25774772053466543_111fcebda91d4446a32075d017d3615f', 'deliveryType': 1}, {'orderId': '122639642', 'dateCreated': '2021-11-15T12:06:25.053652Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 16642, 'officeAddress': 'г. Ульяновск (Ульяновская область), улица Шолмова, д. 37А', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 33549544, 'fio': 'Чижова Светлана Юрьевна', 'phone': 79278258162}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429621667', 'totalPrice': 74000, 'orderUID': '25774772053466543_111fcebda91d4446a32075d017d3615f', 'deliveryType': 1}]
-    # if len(orders) == 0:
-    #     return (0,0)
-
-    # data = b'JVBERi0xLjMKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIKL01lZGlhQm94IFswIDAgMTEzLjQwIDg1LjE3XQovUmVzb3VyY2VzIDIgMCBSCi9Db250ZW50cyA0IDAgUj4+CmVuZG9iago0IDAgb2JqCjw8L0ZpbHRlciAvRmxhdGVEZWNvZGUgL0xlbmd0aCAzNjY+PgpzdHJlYW0KeAGUUztuwzAM3XUKjs1QlRL18xogLdAtgC5Qx3aAbO3S6xei45g20QKdIvjlffhEIbwbhJtBGzN8G7SICG/336tx3qYMxdkSwLXjc0zt52uEybhoER8g4hbMlugOYqNIpncryMcNGFZQM/+U7ZrRkpZoI0ucfwF3aUmM4hVY2peFuZMNrbIHuJMN1P4+M5VsSCuo5gzdCqqGohhFMWNYS9BgahHnQK4dZfGxrJ60BxN/WZi7EpKQVZ5JXJnyzDzcLKuYWWwf28u0WchqptgEBRZOMXtyk1K2iE3QTLEJGtxcWcob2U6Mopid2ATuQwZyKDbM75t3yMUsw+z2z6FYBqXMun5+2444sfdNgl/3scLL64CFcpxSGPuuJHdJ48cYhukyDf1AEXHqh34kGsFxbXWCUzWffM0IVzhWSJY8FJsD1AGeAiVP5QD1BqcKZ/M/E/+rCdqS2wvr2AVL5w5Qb3CqcDY/AQAA//98pAYSCmVuZHN0cmVhbQplbmRvYmoKMSAwIG9iago8PC9UeXBlIC9QYWdlcwovS2lkcyBbMyAwIFIgXQovQ291bnQgMQovTWVkaWFCb3ggWzAgMCA1OTUuMjggODQxLjg5XQo+PgplbmRvYmoKNSAwIG9iago8PC9UeXBlIC9Gb250Ci9CYXNlRm9udCAvVGltZXMtUm9tYW4KL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCj4+CmVuZG9iagoyIDAgb2JqCjw8Ci9Qcm9jU2V0IFsvUERGIC9UZXh0IC9JbWFnZUIgL0ltYWdlQyAvSW1hZ2VJXQovRm9udCA8PAovRmQwODM3NWY2NGViOTg2MWM2ZWFlNGRmY2ZkYmQzNTAwZmJkYmUzM2UgNSAwIFIKPj4KL1hPYmplY3QgPDwKPj4KL0NvbG9yU3BhY2UgPDwKPj4KPj4KZW5kb2JqCjYgMCBvYmoKPDwKL1Byb2R1Y2VyICj+/wBGAFAARABGACAAMQAuADcpCi9DcmVhdGlvbkRhdGUgKEQ6MjAyMTExMjYwOTIyNTMpCi9Nb2REYXRlIChEOjIwMjExMTI2MDkyMjUzKQo+PgplbmRvYmoKNyAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMSAwIFIKL05hbWVzIDw8Ci9FbWJlZGRlZEZpbGVzIDw8IC9OYW1lcyBbCiAgCl0gPj4KPj4KPj4KZW5kb2JqCnhyZWYKMCA4CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDU1MiAwMDAwMCBuIAowMDAwMDAwNzM3IDAwMDAwIG4gCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDExNiAwMDAwMCBuIAowMDAwMDAwNjM5IDAwMDAwIG4gCjAwMDAwMDA4OTggMDAwMDAgbiAKMDAwMDAwMTAxMSAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDgKL1Jvb3QgNyAwIFIKL0luZm8gNiAwIFIKPj4Kc3RhcnR4cmVmCjExMDgKJSVFT0YK'
-    # # print(filter_orders_by_article(['WR00041', 'WR00040/01']))
-
-    # with open('test.pdf', 'wb') as f:
-    #     f.write(codecs.decode(data, 'base64'))
-    # orders = get_all_orders(status=1)
-    # if len(orders) == 0:
-    #     return (0,0)
-    # barcodes = get_barcodes_with_full_info(orders)
-    # with open('barcodes.json','w', encoding='utf-8') as f:
-    #     json.dump(barcodes, f,ensure_ascii=False)
-    # add_json_file_to_today_json('barcodes.json')
-    # create_db_for_checking(barcodes)
-    # create_pdf_stickers_by_barcodes(barcodes)
-    # create_pdf_stickers_by_barcodes(barcodes)
-    # date_start='2021-11-06T00:47:17.528082+00:00'
-    # logging.info(f'Получение всех заказов со статусом {2}')
-    # date_end=get_now_time()
-    # orders = []
-    # params = {
-    #     'date_end': date_end,
-    #     'date_start': date_start,
-    #     'status': 2,
-    #     'take': 200,
-    #     'skip': 0
-    # }
-    # response = requests.get(
-    #     base_url_for_getting_orders,
-    #     headers=headers,
-    #     params=params)
-    # orders = response.json()['orders']
-    # barcodes = get_barcodes_with_full_info(orders)
-    # with open('barcodes.json','w', encoding='utf-8') as f:
-    #     json.dump(barcodes, f,ensure_ascii=False)
-    # add_json_file_to_today_json('barcodes.json')
-    # create_db_for_checking(barcodes)

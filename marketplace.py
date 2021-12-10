@@ -90,7 +90,6 @@ def add_orders_to_supplie_by_id(token:str, supplie_id:str, orders_ids:List[str])
     js = json.dumps(data)
     URL_FOR_ADD_ORDERS_TO_SUPPLIE = f'https://suppliers-api.wildberries.ru/api/v2/supplies/{supplie_id}'
     response = requests.put(URL_FOR_ADD_ORDERS_TO_SUPPLIE, headers=headers, data=js)
-
     if response.status_code != 200:
         return 200
     else:
@@ -607,10 +606,6 @@ def create_db_for_checking(token,barcodes):
             cell.font= Font(color='Ffffffff')
     book.save('db.xlsx')
     book.close()
-# print(close_supplie(token, 'WB-GI-4709043'))
-# create_stickers_by_supplie_id(token,'Савельева','WB-GI-4733823')
-
-# orders = (get_suplies_orders(token, 'WB-GI-4733823')['orders'])
 
 def create_stickers_by_id(token, name, ids):
     headers = {
@@ -638,7 +633,6 @@ def create_stickers_by_id(token, name, ids):
             orders_from_current_response = response.json()['orders']
         except KeyError as e:
             logging.error(e, exc_info=True)
-            print(id)
         orders += orders_from_current_response
         logging.info(f'Получено {len(orders)}')
     orders = sorted(orders, key=lambda x: x['barcode'])
@@ -649,17 +643,13 @@ def create_stickers_by_id(token, name, ids):
     create_pdf_stickers_by_barcodes(token,name,barcodes,)
     create_db_for_checking(token,barcodes)
 
-id=[134267424,]
 
 
-create_stickers_by_id(token, 'Савельева', id)
-# print(len(orders))
-# barcodes = get_barcodes_with_full_info(token,orders)
-# with open('barcodes.json','w', encoding='utf-8') as f:
-#     json.dump(barcodes, f,ensure_ascii=False)
-# create_pdf_stickers_by_barcodes(token, 'ИП Кулик', barcodes)
-# 
-# orders = get_all_orders(token, status=1)
-# print(add_orders_to_supplie(token, supplie_id='WB-GI-4709043', orders=orders))
-# print(len(orders))
-# print(close_supplie(token,'WB-GI-4716250'))
+if __name__ == '__main__':
+    
+
+    print(get_supplies(token))
+    orders = get_all_orders(token, status=1)
+
+    print(add_orders_to_supplie(token, supplie_id='WB-GI-4791838', orders=orders))
+    orders = get_suplies_orders(token, 'WB-GI-4762155')
