@@ -44,12 +44,12 @@ THIN_BORDER = Border(left=Side(style='thin'),
                      bottom=Side(style='thin'))
 
 cred = json.load(open('credentials.json', 'rb'))
-token = cred['БелотеловАГ']['token']
+token = cred['Савельева']['token']
 pdfmetrics.registerFont(TTFont('FreeSans', 'fonts/FreeSans.ttf'))
 
 # token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NJRCI6IjdmYTY4YTgyLTQ4ODUtNDAyZi04YzAwLTRmYTUxNTE1YzBiZSJ9.5u_vveflVF8Nl8tl8wAxbN1L3F_BA2EWbUoYyLSnXvo'
 
-def get_supplies(token:str, status:str='ACTIVE') -> List:
+def get_supplies(token:str, status:str='ACTIVE'):
     headers = {
         'Authorization': token,
     }
@@ -58,7 +58,7 @@ def get_supplies(token:str, status:str='ACTIVE') -> List:
     response = requests.get(URL_FOR_GETTING_SUPPLIES, params=params, headers=headers)
     return response.json()['supplies']
 
-def create_new_supplie(token:str) -> Dict:
+def create_new_supplie(token:str):
     URL_FOR_CREATING_SUPPLIE = 'https://suppliers-api.wildberries.ru/api/v2/supplies'
     headers = {
         'Authorization': token,
@@ -82,7 +82,7 @@ def add_orders_to_supplie(token: str, supplie_id: str, orders: List):
     order_ids = [order['orderId'] for order in orders]
     add_orders_to_supplie_by_id(token, supplie_id, order_ids)
 
-def add_orders_to_supplie_by_id(token:str, supplie_id:str, orders_ids:List[str]) -> None | Dict:
+def add_orders_to_supplie_by_id(token:str, supplie_id:str, orders_ids:List[str]):
     headers = {
         'Authorization': token,
     }
@@ -90,13 +90,14 @@ def add_orders_to_supplie_by_id(token:str, supplie_id:str, orders_ids:List[str])
     js = json.dumps(data)
     URL_FOR_ADD_ORDERS_TO_SUPPLIE = f'https://suppliers-api.wildberries.ru/api/v2/supplies/{supplie_id}'
     response = requests.put(URL_FOR_ADD_ORDERS_TO_SUPPLIE, headers=headers, data=js)
+    print(response.content.decode('utf-8'))
     if response.status_code != 200:
         return 200
     else:
         return response.json()['errorText']
 
 
-def close_supplie(token:str, supplie_id:str) -> None | str:
+def close_supplie(token:str, supplie_id:str):
     headers = {
         'Authorization': token,
     }
@@ -106,7 +107,7 @@ def close_supplie(token:str, supplie_id:str) -> None | str:
         return None
     return response.json()['errorText']
 
-def get_data_svg_stick_of_supplie(token:str, supplie_id:str) -> Dict :
+def get_data_svg_stick_of_supplie(token:str, supplie_id:str):
     headers = {
         'Authorization': token,
     }
@@ -120,12 +121,12 @@ def get_data_svg_stick_of_supplie(token:str, supplie_id:str) -> Dict :
     return data
 
 
-def create_file_by_data(data:str, path_for_save:str) -> None:
+def create_file_by_data(data:str, path_for_save:str):
     file_data = bytes(data, 'utf-8')
     with open(path_for_save, 'wb') as f:
         f.write(codecs.decode(file_data, 'base64'))
 
-def create_stick_of_supplie_by_svg_and_name(path_to_svg:str, name:str, path_for_save:str) -> None:
+def create_stick_of_supplie_by_svg_and_name(path_to_svg:str, name:str, path_for_save:str):
     drawing = svg2rlg(path_to_svg)
     canvas = Canvas(path_for_save, pagesize=A4)
     canvas.setFont('FreeSans', 20)
@@ -134,7 +135,7 @@ def create_stick_of_supplie_by_svg_and_name(path_to_svg:str, name:str, path_for_
     canvas.save()
 
 
-def get_suplies_orders(token:str, supplie_id:str) -> Dict:
+def get_suplies_orders(token:str, supplie_id:str):
     URL_FOR_ORDERS_OF_SUPPLIE =  f'https://suppliers-api.wildberries.ru/api/v2/supplies/{supplie_id}/orders'
     headers = {
         'Authorization': token,
@@ -648,8 +649,11 @@ def create_stickers_by_id(token, name, ids):
 if __name__ == '__main__':
     
 
-    print(get_supplies(token))
-    orders = get_all_orders(token, status=1)
+    # print(get_supplies(token))
+    # orders = get_all_orders(token, status=1)
 
-    print(add_orders_to_supplie(token, supplie_id='WB-GI-4791838', orders=orders))
-    orders = get_suplies_orders(token, 'WB-GI-4762155')
+    # print(add_orders_to_supplie(token, supplie_id='WB-GI-4858239', orders=orders))
+    # orders = get_suplies_orders(token, 'WB-GI-4858872')['orders']
+
+    print(close_supplie(token=token,supplie_id='WB-GI-4860760'))
+    # print(len(orders))

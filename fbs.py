@@ -67,7 +67,7 @@ def update_table():
 
         for row in values[2:]:
             article = row[7].strip().upper()
-            price = row[8].strip()[:-1]
+            price = row[8].strip().replace(' ','')[:-1]
             count = get_count_or_0(data, article)
             letter_for_range = convert_to_column_letter(position_for_place)
             if count != 0:
@@ -77,9 +77,9 @@ def update_table():
                 try:
                     if row[position_for_place-1].strip() == '':
                         body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]}]
-                        # print(f'{row[position_for_place].strip()},{count} {position_for_place}')
                 except:
                     body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]}]
+            logging.info(f'{price}, {count}')
             if price.isdigit():
                 letter_for_range = convert_to_column_letter(position_for_place+2)
                 body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[int(price)*int(count)]]}]
