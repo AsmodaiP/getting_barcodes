@@ -6,7 +6,6 @@ import datetime as dt
 from create_stickers_and_db import create_all_today_path, create_finall_table_of_day
 from dotenv import load_dotenv
 import logging
-import sys
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
@@ -61,7 +60,7 @@ def update_table():
     i = 3
     result = ''
     if not values:
-        print('No data found.')
+        logging.info('No data found.')
     else:
         body_data = []
 
@@ -82,7 +81,6 @@ def update_table():
                         body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]}]
                 except:
                     body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]}]
-            logging.info(f'{price}, {count}')
             if price.isdigit():
                 letter_for_range = convert_to_column_letter(position_for_place+2)
                 body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[int(price)*int(count)]]}]
@@ -92,7 +90,6 @@ def update_table():
             'data':body_data
         }
         sheet.values().batchUpdate(spreadsheetId=SPREADSHEET_ID, body=body).execute()
-        # print(body_data)
     return {'result':result, 'erors': data.keys()}
 
 
