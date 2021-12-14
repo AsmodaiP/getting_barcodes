@@ -233,6 +233,16 @@ def force_update_table(message, update):
 
 updater = Updater(token=TELEGRAM_TOKEN)
 
+def set_on_assembly_and_send_notification(bot,orders):
+    create_stickers_and_db.set_status_to_orders_by_ids(1, orders)
+    orders_count = len(orders)
+    with open('orders.json', 'w', encoding='utf-8') as f:
+        json.dump(orders, f, ensure_ascii=False)
+    bot.message.reply_text(f'{orders_count} переведено на сборку')
+    bot_1.send_document(id, open('orders.json', 'rb'))
+    send_notification(
+        f'Пользователь [{id}](tg://user?id={id}) перевел  на сборку {orders_count} заказов')
+    send_notification_document('orders.json')
 
 
 def set_on_assembly_by_article(bot, update):
@@ -247,18 +257,10 @@ def set_on_assembly_by_article(bot, update):
         return ConversationHandler.END
     articles = update.user_data['articles']
     orders = create_stickers_and_db.filter_orders_by_article(articles, count)
-    with open('orders.json', 'w', encoding='utf-8') as f:
-        json.dump(orders, f, ensure_ascii=False)
-    bot_1.send_document(id, open('orders.json', 'rb'))
-    create_stickers_and_db.set_status_to_orders_by_ids(1, orders)
-    orders_count = len(orders)
-    if orders_count == 0:
+    if len(orders) == 0:
         bot.message.reply_text('Таких артикулов нет в новых')
         return ConversationHandler.END
-    bot.message.reply_text(f'{orders_count} переведено на сборку')
-    send_notification(
-        f'Пользователь [{id}](tg://user?id={id}) перевел  на сборку {orders_count} заказов')
-    send_notification_document('orders.json')
+    set_on_assembly_and_send_notification(bot,orders)
     return ConversationHandler.END
 
 
@@ -302,12 +304,7 @@ def set_on_assembly_by_count(bot, update):
         bot.message.reply_text('Неверный формат числа')
         return ConversationHandler.END
     orders = create_stickers_and_db.get_all_orders(status=0)[:count]
-    with open('orders.json', 'w', encoding='utf-8') as f:
-        json.dump(orders, f, ensure_ascii=False)
-    bot_1.send_document(id, open('orders.json', 'rb'))
-    create_stickers_and_db.set_status_to_orders(1, orders)
-    bot.message.reply_text(f'{len(orders)} передано на сборку')
-    send_notification_document('orders.json')
+    set_on_assembly_and_send_notification(bot,orders)
     return ConversationHandler.END
 
 
