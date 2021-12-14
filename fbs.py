@@ -70,6 +70,9 @@ def update_table():
             price = row[8].strip().replace(' ','')[:-1]
             count = get_count_or_0(data, article)
             letter_for_range = convert_to_column_letter(position_for_place)
+            count_from_table = row[position_for_place-1]
+            if count_from_table.isdigit():
+                count = max(int(count),int(count_from_table))
             if count != 0:
                 body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]}]
                 result += f'{article} — {count}\n'
@@ -94,39 +97,7 @@ def update_table():
 
 
 if __name__ == '__main__':
+
     print(update_table()['erors'])
 
-    # position_for_place = START_POSITION_FOR_PLACE + (dt.date.today().day-2)*6
-    # data = get_data_about_articles()
-    # service = build('sheets', 'v4', credentials=credentials)
-    # sheet = service.spreadsheets()
-    # result = sheet.values().get(spreadsheetId=SPREADSHEET_ID,
-    #                             range=RANGE_NAME, majorDimension='ROWS').execute()
-    # values = result.get('values', [])
-    # i = 3
-    # result = ''
-    # if not values:
-    #     print('No data found.')
-    # else:
-    #     body_data = []
-    #     art = {}
-    #     for row in values[2:]:
-    #         # print(row[7])
-    #         if row[7] not in art.keys():
-    #             art[row[7]]=1
-    #         else:
-    #             art[row[7]]+=1
-    # for a in art.keys():
-    #     if art[a]>1:
-    #         print(a)
-
-# def get_data_about_articles():
-#     json_dir = create_all_today_path()['json_dir']
-#     create_finall_table_of_day()
-    # data = json.load(open(os.path.join(json_dir, 'result_fbs.json'), 'r'))
-    # return data
-
-
-    # data=get_data_about_articles()
-    # print(data)
     
