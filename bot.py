@@ -71,9 +71,10 @@ def send_notification(text):
     for id in ID_FOR_NOTIFICATION:
         bot.send_message(id, text, parse_mode='Markdown')
 
+
 def send_notification_document(document):
     for id in ID_FOR_NOTIFICATION:
-        bot.send_document(id,open(document))
+        bot.send_document(id, open(document))
 
 
 def send_message(message):
@@ -102,7 +103,6 @@ def start(update, _):
                      reply_markup=reply_kb_markup)
 
 
-
 def get_results(message, update):
     id = message['message']['chat']['id']
     if id in whitelistid:
@@ -112,14 +112,15 @@ def get_results(message, update):
 def send_db(id):
     bot.send_document(id, document=open('db.xlsx', 'rb'))
 
+
 def update_table_and_send_notification():
-        result_and_errors = update_table()
-        result = result_and_errors['result']
-        errors = result_and_errors['erors']
-        str_errors = '\n'.join(errors)
-        if result != '':
-            if len(errors) > 0:
-                send_notification(f'Что-то не так с артикулами \n{str_errors}')
+    result_and_errors = update_table()
+    result = result_and_errors['result']
+    errors = result_and_errors['erors']
+    str_errors = '\n'.join(errors)
+    if result != '':
+        if len(errors) > 0:
+            send_notification(f'Что-то не так с артикулами \n{str_errors}')
 
 
 def create_stickers_by_bot(message, update):
@@ -139,7 +140,7 @@ def create_stickers_by_bot(message, update):
         for id_for_not in ID_FOR_NOTIFICATION:
             send_results(id_for_not)
             send_db(id_for_not)
-        update_table_and_send_notification()
+        # update_table_and_send_notification()
 
 
 def get_top_of_articles(message, update):
@@ -152,8 +153,7 @@ def get_top_of_articles(message, update):
         barcodes = create_stickers_and_db.get_barcodes_with_full_info(
             get_all_orders(0))
         if barcodes == {}:
-            return bot.send_message(id,'Новых заказов нет')
-
+            return bot.send_message(id, 'Новых заказов нет')
 
         for barcode in barcodes.keys():
             msg += f'{barcodes[barcode]["info"]["article"]} {barcodes[barcode]["info"]["count"]} \n'
@@ -237,7 +237,8 @@ def force_update_table(message, update):
 
 updater = Updater(token=TELEGRAM_TOKEN)
 
-def set_on_assembly_and_send_notification(bot,orders):
+
+def set_on_assembly_and_send_notification(bot, orders):
     create_stickers_and_db.set_status_to_orders_by_ids(1, orders)
     orders_count = len(orders)
     with open('orders.json', 'w', encoding='utf-8') as f:
@@ -256,7 +257,7 @@ def set_on_assembly_by_article(bot, update):
     update.user_data['count'] = bot.message.text.strip()
     try:
         count = int(update.user_data['count'])
-    except:
+    except BaseException:
         bot.message.reply_text('Неверный формат числа, начните всё с начала')
         return ConversationHandler.END
     articles = update.user_data['articles']
@@ -312,7 +313,7 @@ def set_on_assembly_by_count(bot, update):
 
     try:
         count = int(update.user_data['count'])
-    except:
+    except BaseException:
         bot.message.reply_text('Неверный формат числа')
         return ConversationHandler.END
     orders = create_stickers_and_db.get_all_orders(status=0)[:count]
@@ -327,7 +328,6 @@ def set_on_assembly_by_count(bot, update):
     send_notification_document('orders.json')
     # set_on_assembly_and_send_notification(bot,orders)
     return ConversationHandler.END
-
 
 
 set_on_assembly_by_article_handler = ConversationHandler(
@@ -382,7 +382,7 @@ def swap_by_client_from_user(bot, update):
                 f'Переключение на аккаунт «{client}» прошло успешно')
         else:
             bot.message.reply_text(f'Такого аккаунта не существует')
-    except:
+    except BaseException:
         bot.message.reply_text(
             f'Что-то пошло не так, попробуйте еще раз, проверив данные')
     return ConversationHandler.END
@@ -392,7 +392,7 @@ swap_client_handler = ConversationHandler(
     entry_points=[MessageHandler(Filters.text(
         TEXT_SWAP_CLIENT), get_client_from_user)],
     states={
-        'get_client_from_user':  [MessageHandler(Filters.text & ~Filters.command, swap_by_client_from_user)]
+        'get_client_from_user': [MessageHandler(Filters.text & ~Filters.command, swap_by_client_from_user)]
     },
     fallbacks=[CommandHandler('cancel', cancel)])
 
@@ -408,7 +408,7 @@ def close_supplie_by_bot(bot, update):
         else:
             bot.message.reply_text(
                 f'Что-то пошло не так, вб написал, что {result}')
-    except:
+    except BaseException:
         bot.message.reply_text(
             f'Что-то пошло не так, попробуйте еще раз, проверив данные')
     return ConversationHandler.END
@@ -423,7 +423,7 @@ close_supplie_handler = ConversationHandler(
     entry_points=[MessageHandler(Filters.text(
         ['Закрыть поставку']), get_supplie_from_user)],
     states={
-        'get_supplie_from_user':  [MessageHandler(Filters.text & ~Filters.command, close_supplie_by_bot)]
+        'get_supplie_from_user': [MessageHandler(Filters.text & ~Filters.command, close_supplie_by_bot)]
     },
     fallbacks=[CommandHandler('cancel', cancel)])
 
@@ -445,7 +445,7 @@ def add_orders_to_supplie_by_bot(bot, update):
             bot.message.reply_text(
                 f'Что-то пошло не так, вб написал, что {result}')
         return ConversationHandler.END
-    except:
+    except BaseException:
         bot.message.reply_text(
             f'Что-то пошло не так, попробуйте еще раз, проверив данные')
     return ConversationHandler.END
@@ -455,7 +455,7 @@ add_orders_to_supplie_handler = ConversationHandler(
     entry_points=[MessageHandler(Filters.text(
         [TEXT_ADD_ORDERS_TO_SUPPLIE]), get_supplie_from_user)],
     states={
-        'get_supplie_from_user':  [MessageHandler(Filters.text & ~Filters.command, add_orders_to_supplie_by_bot)]
+        'get_supplie_from_user': [MessageHandler(Filters.text & ~Filters.command, add_orders_to_supplie_by_bot)]
     },
     fallbacks=[CommandHandler('cancel', cancel)])
 
@@ -468,7 +468,7 @@ def swap_client_in_json_by_bot(bot, update):
     swap_or_create_client_in_json(id, client)
 
 
-def swap_or_create_client_in_json(id,  client):
+def swap_or_create_client_in_json(id, client):
     db = json.load(open('users_and_client.json', 'rb'))
     if client in json.load(open('credentials.json', 'rb')):
         db[id] = client

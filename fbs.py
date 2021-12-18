@@ -3,19 +3,19 @@ from google.oauth2 import service_account
 import os
 from googleapiclient.discovery import build
 import datetime as dt
-
-from six import print_
 from create_stickers_and_db import get_barcodes_with_full_info, create_finall_table_of_day, create_all_today_path
 from dotenv import load_dotenv
 import marketplace
 import logging
 from get_orders_of_day import get_all_today_orders
 import time
-
+import telegram
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
-
+TELEGRAM_TOKEN = os.environ['TELEGRAM_TOKEN']
+ID_FOR_NOTIFICATION = 295481377
+bot = telegram.Bot(token=TELEGRAM_TOKEN)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'credentials_service.json')
 credentials = service_account.Credentials.from_service_account_file(
@@ -45,12 +45,13 @@ def get_barcodes_with_orders_and_chartId(token, orders):
     logging.info(f'Получено {len(barcodes_and_ids)} баркодов')
     return barcodes_and_ids
 
+
 def convert_to_column_letter(column_number):
     column_letter = ''
     while column_number != 0:
-        c = ((column_number-1) % 26)
-        column_letter = chr(c+65)+column_letter
-        column_number = (column_number-c)//26
+        c = ((column_number - 1) % 26)
+        column_letter = chr(c + 65) + column_letter
+        column_number = (column_number - c) // 26
     return column_letter
 
 
@@ -60,6 +61,7 @@ def get_data_about_articles():
     data = json.load(open(os.path.join(json_dir, 'result_fbs.json'), 'r'))
     return data
 
+
 def get_count_or_0(data, article):
     if article in data.keys():
         count = data[article]
@@ -68,11 +70,12 @@ def get_count_or_0(data, article):
     else:
         return 0
 
+
 def update_table(data):
     if SPREADSHEET_ID is None:
         return 'SPREADSHEET_ID не задано'
-    position_for_place = START_POSITION_FOR_PLACE + (dt.date.today().day-1)*6
-    # data = get_data_about_today_nmid_and_count_of_orders()
+    position_for_place = START_POSITION_FOR_PLACE + \
+        (dt.date.today().day - 1) * 6
     service = build('sheets', 'v4', credentials=credentials)
     sheet = service.spreadsheets()
     result = sheet.values().get(spreadsheetId=SPREADSHEET_ID,
@@ -84,41 +87,48 @@ def update_table(data):
         logging.info('No data found.')
     else:
         letter_for_range = convert_to_column_letter(position_for_place)
-        body_data = [{'range': f'{RANGE_NAME}!{letter_for_range}{i-1}', 'values': [[str(dt.datetime.today().strftime('%d-%m-%Y %M:%H'))]]}]
-        print(body_data)
+        body_data = [{'range': f'{RANGE_NAME}!{letter_for_range}{i-1}',
+                      'values': [[str(dt.datetime.today().strftime('%d-%m-%Y %H:%M'))]]}]
         for row in values[2:]:
             article = row[7].strip().upper()
-            price = row[8].strip().replace(' ','')[:-1]
+            price = row[8].strip().replace(' ', '')[:-1]
             count = get_count_or_0(data, article)
-            count_from_table = row[position_for_place-1]
-            
+            count_from_table = row[position_for_place - 1]
+
             if count_from_table.isdigit():
-                count = max(int(count),int(count_from_table))
+                count = max(int(count), int(count_from_table))
             if count != 0:
-                body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]}]
+                body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',
+                               'values': [[count]]}]
                 result += f'{article} — {count}\n'
-                
+
             else:
                 try:
-                    if row[position_for_place-1].strip() == '':
-                        body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]}]
-                except:
-                    body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[count]]}]
+                    if row[position_for_place - 1].strip() == '':
+                        body_data += [
+                            {'range': f'{RANGE_NAME}!{letter_for_range}{i}', 'values': [[count]]}]
+                except BaseException:
+                    body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',
+                                   'values': [[count]]}]
             if price.isdigit():
-                letter_for_range = convert_to_column_letter(position_for_place+2)
-                body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',  'values': [[int(price)*int(count)]]}]
+                letter_for_range = convert_to_column_letter(
+                    position_for_place + 2)
+                body_data += [{'range': f'{RANGE_NAME}!{letter_for_range}{i}',
+                               'values': [[int(price) * int(count)]]}]
             i += 1
         body = {
             'valueInputOption': 'USER_ENTERED',
-            'data':body_data
+            'data': body_data
         }
         sheet.values().batchUpdate(spreadsheetId=SPREADSHEET_ID, body=body).execute()
-    return {'result':result, 'erors': data.keys()}
+    return {'result': result, 'errors': data.keys()}
+
 
 def get_data_about_today_nmid_and_count_of_orders(token):
     orders = get_all_today_orders(token)
-    barcodes = marketplace.get_barcodes_with_full_info(token=token,orders=orders)
-    order_and_nmid_dict={}
+    barcodes = marketplace.get_barcodes_with_full_info(
+        token=token, orders=orders)
+    order_and_nmid_dict = {}
     for barcode in barcodes.keys():
         orders = barcodes[barcode]['orders']
         for order in orders:
@@ -131,18 +141,27 @@ def get_data_about_today_nmid_and_count_of_orders(token):
         else:
             nmid_and_count[article] += 1
     return nmid_and_count
+
+
 if __name__ == '__main__':
     while True:
         try:
             cred = json.load(open('credentials.json', 'rb'))
             tokens = []
+            tokens_and_name = {}
             for name in cred.keys():
-                tokens += [cred[name]['token']]
-            for token in tokens:
+                token = cred[name]['token']
                 data = get_data_about_today_nmid_and_count_of_orders(token)
-            update_table(data)
+                result = update_table(data)
+                errors = result['errors']
+
+                if len(errors) > 0 and name == 'БелотеловАГ':
+                    str_errors = '\n'.join(errors)
+                    bot.send_message(
+                        ID_FOR_NOTIFICATION, f'Что-то не так с артикулами  у {name} \n{str_errors}')
             time.sleep(120)
 
         except Exception as e:
-            logging.error('Ошибка при обновлении таблизы фбс',exc_info=e)
-    
+            logging.error('Ошибка при обновлении таблицы фбс', exc_info=e)
+            bot.send_message(ID_FOR_NOTIFICATION,
+                             f'Ошибка {e} при обнолвении таблицы фбс')
