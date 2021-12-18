@@ -44,7 +44,7 @@ THIN_BORDER = Border(left=Side(style='thin'),
                      bottom=Side(style='thin'))
 
 cred = json.load(open('credentials.json', 'rb'))
-token = cred['Савельева']['token']
+TOKEN = cred['Савельева']['token']
 pdfmetrics.registerFont(TTFont('FreeSans', 'fonts/FreeSans.ttf'))
 
 # token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NJRCI6IjdmYTY4YTgyLTQ4ODUtNDAyZi04YzAwLTRmYTUxNTE1YzBiZSJ9.5u_vveflVF8Nl8tl8wAxbN1L3F_BA2EWbUoYyLSnXvo'
@@ -90,7 +90,7 @@ def add_orders_to_supplie_by_id(token:str, supplie_id:str, orders_ids:List[str])
     js = json.dumps(data)
     URL_FOR_ADD_ORDERS_TO_SUPPLIE = f'https://suppliers-api.wildberries.ru/api/v2/supplies/{supplie_id}'
     response = requests.put(URL_FOR_ADD_ORDERS_TO_SUPPLIE, headers=headers, data=js)
-    print(response.content.decode('utf-8'))
+    # print(response.content.decode('utf-8'))
     if response.status_code != 200:
         return 200
     else:
@@ -165,9 +165,9 @@ def get_barcodes_with_orders_and_chartId(token, orders):
     return barcodes_and_ids
 
 
-def add_information_about_barcodes_and_len(barcodes):
+def add_information_about_barcodes_and_len(token,barcodes):
     for barcode in barcodes.keys():
-        barcodes[barcode]['info'] = getting_information_about_barcode_by_chartId(barcodes[barcode]['chrtId'])
+        barcodes[barcode]['info'] = getting_information_about_barcode_by_chartId(token,barcodes[barcode]['chrtId'])
         barcodes[barcode]['info']['count'] = len(barcodes[barcode]['orders'])
     return barcodes
 
@@ -175,6 +175,7 @@ def get_card_by_chrtId(token, chrtId):
     headers = {
         'Authorization': token,
     }
+    # print(token)
     url = 'https://suppliers-api.wildberries.ru/card/list'
     json_for_request = {
         "id": 1,
@@ -195,6 +196,7 @@ def get_card_by_chrtId(token, chrtId):
         }
     }
     response = requests.post(url=url, headers=headers, json=json_for_request)
+    # print(response.content.decode('utf-8'))
     card = response.json()['result']['cards'][0]
     return card
 
@@ -208,7 +210,7 @@ def get_data_nomenclature_from_card_by_chrtId(card, chrtId):
                 if data_about_nomenclature[field] == chrtId:
                     return(data_about_nomenclature, vendorCode, nomenclature)
 
-def getting_information_about_barcode_by_chartId(chrtId):
+def getting_information_about_barcode_by_chartId(token, chrtId):
     good = get_card_by_chrtId(token, chrtId)
     
     supplierVendorCode = good['supplierVendorCode']
@@ -256,7 +258,7 @@ def sorted_barcodes_by_count_of_orders(barcodes):
 
 def get_barcodes_with_full_info(token, orders):
     barcodes = get_barcodes_with_orders_and_chartId(token, orders)
-    barcodes = add_information_about_barcodes_and_len(barcodes)
+    barcodes = add_information_about_barcodes_and_len(token, barcodes)
     barcodes = sorted_barcodes_by_count_of_orders(barcodes)
     return barcodes
 
@@ -345,7 +347,7 @@ def create_and_merge_pdf_by_barcodes_and_ids(token, name, barcodes_and_ids):
     logging.info('Создание pdf для баркодов')
     results_files = []
     url_for_getting_stikers = 'https://suppliers-api.wildberries.ru/api/v2/orders/stickers/pdf'
-    print(barcodes_and_ids.keys())
+    # print(barcodes_and_ids.keys())
     for barcode in barcodes_and_ids.keys():
         
         edit_blank_pdf(barcodes_and_ids[barcode]['info'], name)
@@ -647,7 +649,7 @@ def create_stickers_by_id(token, name, ids):
 
 
 if __name__ == '__main__':
-    
+    pass
 
     # print(get_supplies(token))
     # orders = get_all_orders(token, status=1)
@@ -655,5 +657,5 @@ if __name__ == '__main__':
     # print(add_orders_to_supplie(token, supplie_id='WB-GI-4858239', orders=orders))
     # orders = get_suplies_orders(token, 'WB-GI-4858872')['orders']
 
-    print(close_supplie(token=token,supplie_id='WB-GI-4860760'))
+    # print(close_supplie(token=token,supplie_id='WB-GI-4860760'))
     # print(len(orders))

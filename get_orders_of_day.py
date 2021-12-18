@@ -50,22 +50,20 @@ def get_now_time():
     return(d_with_timezone.isoformat())
 
 
-def get_all_orders(token, status=0, date_end=get_now_time(), date_start='2021-11-06T00:47:17.528082+00:00'):
+def get_all_orders(token, date_end='', date_start='2021-11-06T00:47:17.528082+00:00'):
 
     headers = {
     'Authorization': token,
     }
 
-    # logging.info(f'Получение всех заказов со статусом {status}')
-    date_end = get_now_time()
     orders = []
     params = {
         'date_end': date_end,
         'date_start': date_start,
-        'status': status,
         'take': 1000,
         'skip': 0
     }
+
     response = requests.get(
         base_url_for_getting_orders,
         headers=headers,
@@ -88,16 +86,104 @@ def get_all_orders(token, status=0, date_end=get_now_time(), date_start='2021-11
     logging.info(f'Получено {len(orders)}')
     return orders
 
-if __name__ == '__main__':
-    pass
-    #  print(datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(1))
+def get_all_today_orders(token):
     end, beginning = get_beggining_and_end_of_today()
-    print(end)
-    print(beginning)
-    orders = get_all_orders(token=TOKEN, status=0, date_end=end, date_start=beginning)
-    print(len(orders))
+    orders = get_all_orders(token=token, date_end=end, date_start=beginning)
+    orders = clean_orders_from_user_status_1(orders)
+    return orders
+
+def clean_orders_from_user_status_1(orders):
+    logging.info('Очистка заказов от заказов со статусом 1')
+    filtered_orders = []
+    for order in orders:
+        if order['userStatus'] != 1:
+            filtered_orders += [order]
+    logging.info(f'Осталось  {len(filtered_orders)}')
+    return filtered_orders
+
+if __name__ == '__main__':
+    print(len(get_all_today_orders(TOKEN)))
+    # # get_all_today_orders()
+    # headers = {
+    # 'Authorization': TOKEN,
+    # }
+    # # logging.info(f'Получение всех заказов со статусом {status}')
+    # orders = []
+    # params = {
+    #     'date_end': '2021-12-15T21:00:00+00:00',
+    #     'date_start': '2021-12-14T21:00:00+00:00',
+    #     'take': 1000,
+    #     'skip': 0,
+    # }
+
+    # response = requests.get(
+    #     base_url_for_getting_orders,
+    #     headers=headers,
+    #     params=params)
+    # try:
+    #     orders_from_current_response = response.json()['orders']
+    # except KeyError as e:
+    #     orders_from_current_response = []
+    #     logging.error(e, exc_info=True)
+    # orders += orders_from_current_response
+    # while orders_from_current_response != []:
+    #     params['skip'] += len(orders_from_current_response)
+    #     response = requests.get(
+    #         base_url_for_getting_orders,
+    #         headers=headers,
+    #         params=params)
+    #     orders_from_current_response = response.json()['orders']
+    #     orders += orders_from_current_response
+    #     logging.info(f'{len(orders)}')
+    # logging.info(f'Получено {len(orders)}')
+    
+    # filtered_orders = []
+    # count=0
     # for order in orders:
-    #     print(order['orderId'])
+    #     if order['barcode']=='2000790373009':
+    #         count+=1
+
+    #     if order['userStatus'] != 1:
+
+    #         if order['userStatus'] != 4:
+    #             print(order['userStatus']) 
+    #         filtered_orders += [order]
+    # logging.info(f'Осталось  {len(filtered_orders)}')
+    # print(count)
+    # headers = {
+    # 'Authorization': TOKEN,
+    # }
+    # # logging.info(f'Получение всех заказов со статусом {status}')
+    # orders = []
+    # params = {
+    #     'date_end': date_end,
+    #     'date_start': date_start,
+    #     'take': 1000,
+    #     'skip': 0
+    # }
+
+    # response = requests.get(
+    #     base_url_for_getting_orders,
+    #     headers=headers,
+    #     params=params)
+    # try:
+    #     orders_from_current_response = response.json()['orders']
+    # except KeyError as e:
+    #     orders_from_current_response = []
+    #     logging.error(e, exc_info=True)
+    # orders += orders_from_current_response
+    # while orders_from_current_response != []:
+    #     params['skip'] += len(orders_from_current_response)
+    #     response = requests.get(
+    #         base_url_for_getting_orders,
+    #         headers=headers,
+    #         params=params)
+    #     orders_from_current_response = response.json()['orders']
+    #     orders += orders_from_current_response
+    #     logging.info(f'{len(orders)}')
+    # logging.info(f'Получено {len(orders)}')
+    # pass  
+
 # import time
 # def get_next_utc_unix_00_00():
 #     current_date = time.strftime("%d %b %Y", time.gmtime(time.time() + 86400))
