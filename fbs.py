@@ -1,5 +1,4 @@
 import json
-from sys import exc_info
 from google.oauth2 import service_account
 import os
 from googleapiclient.discovery import build
@@ -11,6 +10,7 @@ from dotenv import load_dotenv
 import marketplace
 import logging
 from get_orders_of_day import get_all_today_orders
+import time
 
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -141,6 +141,8 @@ if __name__ == '__main__':
             for token in tokens:
                 data = get_data_about_today_nmid_and_count_of_orders(token)
             update_table(data)
+            time.sleep(120)
+
         except Exception as e:
             logging.error('Ошибка при обновлении таблизы фбс',exc_info=e)
     
