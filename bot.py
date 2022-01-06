@@ -1,19 +1,13 @@
-import re
-from reportlab.lib.utils import CIDict, prev_this_next
-from requests.api import get
 import telegram
-import telebot
 import os
 import sys
-import datetime
 from dotenv import load_dotenv
 import logging
 from logging.handlers import RotatingFileHandler
-from telegram.ext import Updater, messagehandler
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, ConversationHandler
+from telegram.ext import Updater, CommandHandler, MessageHandler, ConversationHandler
 import create_stickers_and_db
-from create_stickers_and_db import create_path_if_not_exist, create_stickers, get_all_orders, set_status_collected_for_all_on_assembly, get_list_of_relative_path_to_all_today_results, get_list_of_relative_path_to_all_logs, NAME, set_status_to_orders
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
+from create_stickers_and_db import  create_stickers, get_all_orders, set_status_collected_for_all_on_assembly, get_list_of_relative_path_to_all_today_results, get_list_of_relative_path_to_all_logs, NAME, set_status_to_orders
+from telegram import KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Filters
 from fbs import update_table
 import json
@@ -61,8 +55,51 @@ TEXT_UPDATE_TABLE = 'Обновить таблицу'
 TEXT_STATS = 'Статистика'
 TEXT_TOP = 'Топ артикулов по количеству'
 TEXT_SWAP_CLIENT = 'Сменить аккаунт'
-TEXT_CLOSE_SUPPLIE = 'Закрыть поставку'
-TEXT_ADD_ORDERS_TO_SUPPLIE = 'Добавить заказы к поставке'
+TEXT_CLOSE_SUPPLIE = 'Закрыть текущую поставку'
+TEXT_GET_STICK_OF_SUPPLIE = 'Штрихкод поставки'
+TEXT_GET_CURRENT_SUPPLIE = 'Текущая поставка/Создать новую'
+TEXT_ADD_ORDERS_TO_SUPPLIE = 'Добавить заказы к текущей поставке'
+
+CATEGORY_SUPLLIES = 'Поставки'
+CATEGORY_ON_ASSEMBLY = 'Перевести на сборку'
+CATEGORY_MAIN_MENU = 'В главное меню'
+
+ON_ASSEMBLY_KEYBOARD = (
+    [KeyboardButton(TEXT_TO_PUT_ON_ASSEMBLY_BY_COUNT),
+     KeyboardButton(TEXT_TO_PUT_ON_ASSEMBLY_BY_ARTICLE)],
+    [KeyboardButton(TEXT_TOP)],
+    [KeyboardButton(CATEGORY_MAIN_MENU)]
+)
+
+SUPPLIES_KEYBOARD = (
+    [KeyboardButton(TEXT_GET_CURRENT_SUPPLIE),
+     KeyboardButton(TEXT_GET_STICK_OF_SUPPLIE)],
+    [KeyboardButton(TEXT_ADD_ORDERS_TO_SUPPLIE)],
+    [KeyboardButton(TEXT_CLOSE_SUPPLIE)],
+    [KeyboardButton(CATEGORY_MAIN_MENU)]
+)
+MAIN_MENU_CATEGORY = (
+    [KeyboardButton(TEXT_TO_CREATE_STICKERS)],
+    [KeyboardButton(TEXT_SWAP_CLIENT)],
+    [KeyboardButton(CATEGORY_ON_ASSEMBLY),
+     KeyboardButton(CATEGORY_SUPLLIES), ],
+    [KeyboardButton(TEXT_STATS)]
+)
+
+MAIN_MENU = (
+    [KeyboardButton(TEXT_TO_CREATE_STICKERS), KeyboardButton(TEXT_TOP)],
+    [KeyboardButton(TEXT_CLOSE_SUPPLIE), KeyboardButton(
+        TEXT_ADD_ORDERS_TO_SUPPLIE)],
+    [KeyboardButton(TEXT_TO_PUT_ON_ASSEMBLY_BY_COUNT), KeyboardButton(
+        TEXT_SWAP_CLIENT), KeyboardButton(TEXT_TO_PUT_ON_ASSEMBLY_BY_ARTICLE)],
+    [KeyboardButton(TEXT_GET_STICK_OF_SUPPLIE),
+     KeyboardButton(TEXT_GET_CURRENT_SUPPLIE)],
+    [KeyboardButton(TEXT_STATS)]
+)
+MAIN_MENU_MARKUP = ReplyKeyboardMarkup(
+    MAIN_MENU,
+    resize_keyboard=True,
+    one_time_keyboard=False)
 
 whitelistid = (1617188356, 1126541068, 482957060, 172902983)
 
@@ -85,22 +122,37 @@ def send_results(id):
     bot.send_document(id, document=open('results.pdf', 'rb'))
 
 
-def start(update, _):
-    main_menu_keyboard = (
-        [KeyboardButton(TEXT_TO_CREATE_STICKERS), KeyboardButton(TEXT_TOP)],
-        [KeyboardButton(TEXT_CLOSE_SUPPLIE), KeyboardButton(
-            TEXT_ADD_ORDERS_TO_SUPPLIE)],
-        [KeyboardButton(TEXT_TO_PUT_ON_ASSEMBLY_BY_COUNT), KeyboardButton(
-            TEXT_SWAP_CLIENT), KeyboardButton(TEXT_TO_PUT_ON_ASSEMBLY_BY_ARTICLE)],
-        [KeyboardButton(TEXT_TO_PUT_ON_COLLECTED)],
-        [KeyboardButton(TEXT_UPDATE_TABLE), KeyboardButton(TEXT_STATS)]
-    )
-    reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard,
-                                          resize_keyboard=True,
-                                          one_time_keyboard=False)
-    bot.send_message(chat_id=update.message.chat_id,
-                     text='Выберите действие',
-                     reply_markup=reply_kb_markup)
+def supplies_keyboard(bot, update):
+    supplies_markup = ReplyKeyboardMarkup(
+        SUPPLIES_KEYBOARD,
+        resize_keyboard=True,
+        one_time_keyboard=False)
+    bot.message.reply_text(f'Выберете действие', reply_markup=supplies_markup)
+
+
+def assembly_keyboard(bot, update):
+    assembly_markup = ReplyKeyboardMarkup(
+        ON_ASSEMBLY_KEYBOARD,
+        resize_keyboard=True,
+        one_time_keyboard=False)
+    bot.message.reply_text(f'Выберете действие', reply_markup=assembly_markup)
+
+
+def main_meny_category(bot, update):
+    meny_markup = ReplyKeyboardMarkup(
+        ON_ASSEMBLY_KEYBOARD,
+        resize_keyboard=True,
+        one_time_keyboard=False)
+    bot.message.reply_text(f'Выберете действие', reply_markup=meny_markup)
+
+
+def main_menu(bot, update):
+    # bot.message.reply_text(f'Выберете действие', reply_markup=MAIN_MENU_MARKUP)
+    meny_markup = ReplyKeyboardMarkup(
+        MAIN_MENU_CATEGORY,
+        resize_keyboard=True,
+        one_time_keyboard=False)
+    bot.message.reply_text(f'Выберете действие', reply_markup=meny_markup)
 
 
 def get_results(message, update):
@@ -140,7 +192,6 @@ def create_stickers_by_bot(message, update):
         for id_for_not in ID_FOR_NOTIFICATION:
             send_results(id_for_not)
             send_db(id_for_not)
-        # update_table_and_send_notification()
 
 
 def get_top_of_articles(message, update):
@@ -223,19 +274,32 @@ def put_all_on_collected(message, update):
 
 def force_update_table(message, update):
     id = message['message']['chat']['id']
-    if id in whitelistid:
-        result_and_errors = update_table()
-        result = result_and_errors['result']
-        errors = result_and_errors['erors']
-        str_errors = '\n'.join(errors)
-        if result != '':
-            send_notification(result)
-            if len(errors) > 0:
-                send_notification(f'Что-то не так с артикулами \n{str_errors}')
-            bot.send_message(id, result)
+   # if id in whitelistid:
+    #    result_and_errors = update_table()
+    #   result = result_and_errors['result']
+    #  errors = result_and_errors['erors']
+    # str_errors = '\n'.join(errors)
+    # if result != '':
+    #   send_notification(result)
+    #  if len(errors) > 0:
+    #     send_notification(f'Что-то не так с артикулами \n{str_errors}')
+    #bot.send_message(id, result)
 
 
 updater = Updater(token=TELEGRAM_TOKEN)
+
+
+supplies_keyboard_menu_handler = MessageHandler(
+    Filters.text([CATEGORY_SUPLLIES]), supplies_keyboard)
+updater.dispatcher.add_handler(supplies_keyboard_menu_handler)
+
+assembly_keyboard_menu_handler = MessageHandler(
+    Filters.text([CATEGORY_ON_ASSEMBLY]), assembly_keyboard)
+updater.dispatcher.add_handler(assembly_keyboard_menu_handler)
+
+main_meny_category_menu_handler = MessageHandler(
+    Filters.text([CATEGORY_MAIN_MENU]), main_menu)
+updater.dispatcher.add_handler(main_meny_category_menu_handler)
 
 
 def set_on_assembly_and_send_notification(bot, orders):
@@ -252,8 +316,6 @@ def set_on_assembly_and_send_notification(bot, orders):
 
 def set_on_assembly_by_article(bot, update):
     id = bot['message']['chat']['id']
-    if not id in whitelistid:
-        return ConversationHandler.END
     update.user_data['count'] = bot.message.text.strip()
     try:
         count = int(update.user_data['count'])
@@ -279,8 +341,6 @@ def set_on_assembly_by_article(bot, update):
 
 def get_articles_from_user(bot, update):
     id = bot['message']['chat']['id']
-    if not id in whitelistid:
-        return ConversationHandler.END
     bot.message.reply_text(
         'Введите нужные артикулы через пробел, для отмены введите /cancel')
     return 'count'
@@ -288,8 +348,8 @@ def get_articles_from_user(bot, update):
 
 def get_count_from_user(bot, update):
     id = bot['message']['chat']['id']
-    if not id in whitelistid:
-        return ConversationHandler.END
+   # if not id in whitelistid:
+    #    return ConversationHandler.END
     update.user_data['articles'] = bot.message.text.upper().split()
     bot.message.reply_text(
         'Введите масимальное число заказов для перевода, для отмены введите /cancel')
@@ -400,14 +460,13 @@ swap_client_handler = ConversationHandler(
 def close_supplie_by_bot(bot, update):
     try:
         supplie = bot.message.text.strip()
-        print(supplie)
         result = create_stickers_and_db.close_supplie(supplie)
-        print(result)
         if result is None:
             bot.message.reply_text(f'Поставка {supplie} закрыта')
         else:
             bot.message.reply_text(
                 f'Что-то пошло не так, вб написал, что {result}')
+            return ConversationHandler.END
     except BaseException:
         bot.message.reply_text(
             f'Что-то пошло не так, попробуйте еще раз, проверив данные')
@@ -419,15 +478,114 @@ def get_supplie_from_user(bot, update):
     return 'get_supplie_from_user'
 
 
-close_supplie_handler = ConversationHandler(
+def create_and_send_supplie_by_id(bot, update, supplie_id):
+    id = bot['message']['chat']['id']
+    try:
+        path = create_stickers_and_db.create_stick_of_supplie(supplie_id)
+        bot_1.send_document(id, open(path, 'rb'))
+    except BaseException:
+        bot.message.reply_text(
+            'Что-то пошло не так при получении штрихкода поставки. /n Убедитесь в корректности номера поставки и попробуйте еще раз.')
+
+
+def get_supplies_stick(bot, update):
+    supplie = bot.message.text.strip()
+    if not supplie[-1].isdigit():
+        bot.message.reply_text('Операция получения штрихкода отменена')
+        return ConversationHandler.END
+    create_and_send_supplie_by_id(bot, update_table, supplie)
+    return ConversationHandler.END
+
+
+get_stick_of_supplie_handler = ConversationHandler(
     entry_points=[MessageHandler(Filters.text(
-        ['Закрыть поставку']), get_supplie_from_user)],
+        [TEXT_GET_STICK_OF_SUPPLIE]), get_supplie_from_user)],
     states={
-        'get_supplie_from_user': [MessageHandler(Filters.text & ~Filters.command, close_supplie_by_bot)]
+        'get_supplie_from_user': [MessageHandler(Filters.text & ~Filters.command, get_supplies_stick)]
     },
     fallbacks=[CommandHandler('cancel', cancel)])
+updater.dispatcher.add_handler(get_stick_of_supplie_handler)
 
-updater.dispatcher.add_handler(close_supplie_handler)
+# close_supplie_handler = ConversationHandler(
+#     entry_points=[MessageHandler(Filters.text(
+#         ['Закрыть поставку']), get_supplie_from_user)],
+#     states={
+#         'get_supplie_from_user': [MessageHandler(Filters.text & ~Filters.command, close_supplie_by_bot)]
+#     },
+#     fallbacks=[CommandHandler('cancel', cancel)])\
+
+
+def close_current_supplie(bot, update):
+    try:
+        supplies = create_stickers_and_db.get_supplies()
+        if supplies == []:
+            return bot.message.reply_text(
+                f'Нет активной поставки, вначале создайте её, добавьте заказы и распечатайте стикеры')
+
+        current_supplie = supplies[0]["supplyId"]
+
+        result = create_stickers_and_db.close_supplie(current_supplie)
+        if result is None:
+            bot.message.reply_text(f'Поставка {current_supplie} закрыта')
+        else:
+            bot.message.reply_text(
+                f'Что-то пошло не так, вб написал, что {result}')
+    except Exception:
+        bot.message.reply_text(
+            f'Что-то пошло не так, попробуйте еще раз, проверив данные')
+
+
+close_current_supplie_handler = MessageHandler(
+    Filters.text([TEXT_CLOSE_SUPPLIE]), close_current_supplie)
+
+updater.dispatcher.add_handler(close_current_supplie_handler)
+
+
+def get_current_supplie(bot, update):
+    supplies = create_stickers_and_db.get_supplies()
+    if supplies == []:
+        bot.message.reply_text('Активных поставок нет')
+        reply_kb_markup = ReplyKeyboardMarkup(([KeyboardButton('Да')], [KeyboardButton('В главное меню')]),
+                                              resize_keyboard=True,
+                                              one_time_keyboard=True)
+        bot.message.reply_text('Создать новую?', reply_markup=reply_kb_markup)
+        return 'get_answer'
+    current_supplie = supplies[0]["supplyId"]
+    create_and_send_supplie_by_id(bot, update, current_supplie)
+    bot.message.reply_text(f'{current_supplie}')
+
+
+def get_answer_about_new_supplie(bot, update):
+    answer = bot.message.text.strip()
+    if answer != 'Да':
+        main_menu(bot, update)
+        return ConversationHandler.END
+    create_new_supplie(bot, update)
+    return ConversationHandler.END
+
+
+def create_new_supplie(bot, update):
+    data = create_stickers_and_db.create_new_supplie()
+    supplie_id = data['supplyId']
+    if supplie_id == '':
+        bot.message.reply_text(f'Что-то пошло не так, ошибка {data["error"]}')
+        main_menu(bot, update)
+        return ConversationHandler.END
+    bot.message.reply_text(f'Номер созданной поставки {supplie_id}')
+    create_and_send_supplie_by_id(bot, update, supplie_id)
+    main_menu(bot, update)
+    return ConversationHandler.END
+
+
+get_current_supplie_handler = ConversationHandler(
+    entry_points=[MessageHandler(Filters.text(
+        [TEXT_GET_CURRENT_SUPPLIE]), get_current_supplie)],
+    states={
+        'get_answer': [MessageHandler(Filters.text & ~Filters.command, get_answer_about_new_supplie)],
+        'create_new_supplie': [MessageHandler(Filters.text & ~Filters.command, create_new_supplie)],
+    },
+    fallbacks=[CommandHandler('cancel', cancel)])
+updater.dispatcher.add_handler(get_current_supplie_handler)
 
 
 def add_orders_to_supplie_by_bot(bot, update):
@@ -451,15 +609,42 @@ def add_orders_to_supplie_by_bot(bot, update):
     return ConversationHandler.END
 
 
-add_orders_to_supplie_handler = ConversationHandler(
-    entry_points=[MessageHandler(Filters.text(
-        [TEXT_ADD_ORDERS_TO_SUPPLIE]), get_supplie_from_user)],
-    states={
-        'get_supplie_from_user': [MessageHandler(Filters.text & ~Filters.command, add_orders_to_supplie_by_bot)]
-    },
-    fallbacks=[CommandHandler('cancel', cancel)])
+# add_orders_to_supplie_handler = ConversationHandler(
+#     entry_points=[MessageHandler(Filters.text(
+#         [TEXT_ADD_ORDERS_TO_SUPPLIE]), get_supplie_from_user)],
+#     states={
+#         'get_supplie_from_user': [MessageHandler(Filters.text & ~Filters.command, add_orders_to_supplie_by_bot)]
+#     },
+#     fallbacks=[CommandHandler('cancel', cancel)])
 
-updater.dispatcher.add_handler(add_orders_to_supplie_handler)
+def add_orders_to_current_supplie(bot, update):
+    try:
+        supplies = create_stickers_and_db.get_supplies()
+        if supplies == []:
+            return bot.message.reply_text(
+                f'Нет активной поставки, вначале создайте её')
+        current_supplie = supplies[0]["supplyId"]
+        orders = create_stickers_and_db.get_all_orders(status=1)
+        if len(orders) == 0:
+            bot.message.reply_text('На сборке ноль заказов, добавлять нечего')
+        result = create_stickers_and_db.add_orders_to_supplie(
+            current_supplie, orders)
+        if result == 200:
+            bot.message.reply_text(f'Okey')
+        else:
+            bot.message.reply_text(
+                f'Что-то пошло не так, вб написал, что {result}')
+    except Exception:
+        bot.message.reply_text(
+            f'Что-то пошло не так, попробуйте еще раз, проверив данные')
+
+# add_orders_to_current_supplie_handler =
+
+
+add_orders_to_current_supplie_handler = MessageHandler(
+    Filters.text([TEXT_ADD_ORDERS_TO_SUPPLIE]), add_orders_to_current_supplie)
+
+updater.dispatcher.add_handler(add_orders_to_current_supplie_handler)
 
 
 def swap_client_in_json_by_bot(bot, update):
@@ -508,7 +693,7 @@ updater.dispatcher.add_handler(update_table_menu_handler)
 get_stats_handler = MessageHandler(Filters.text(['Статистика']), get_stats)
 updater.dispatcher.add_handler(get_stats_handler)
 
-start_handler = CommandHandler('start', start)
+start_handler = CommandHandler('start', main_menu)
 updater.dispatcher.add_handler(start_handler)
 
 get_results_handler = CommandHandler('get_results', get_results)

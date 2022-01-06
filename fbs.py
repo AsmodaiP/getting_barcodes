@@ -3,13 +3,13 @@ from google.oauth2 import service_account
 import os
 from googleapiclient.discovery import build
 import datetime as dt
-from create_stickers_and_db import get_barcodes_with_full_info, create_finall_table_of_day, create_all_today_path
 from dotenv import load_dotenv
 import marketplace
 import logging
 from get_orders_of_day import get_all_today_orders
 import time
 import telegram
+from logging.handlers import RotatingFileHandler
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
@@ -28,7 +28,22 @@ dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 SPREADSHEET_ID = os.getenv('SPREADSHEET_ID', None)
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path)
-
+console_handler = logging.StreamHandler()
+log_file = 'table.log'
+file_handler = RotatingFileHandler(
+    log_file,
+    maxBytes=100000,
+    backupCount=3,
+    encoding='utf-8'
+)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s, %(levelname)s, %(message)s',
+    handlers=(
+        file_handler,
+        console_handler
+    )
+)
 
 def get_barcodes_with_orders_and_chartId(token, orders):
     barcodes_and_ids = {}
@@ -55,11 +70,11 @@ def convert_to_column_letter(column_number):
     return column_letter
 
 
-def get_data_about_articles():
-    json_dir = create_all_today_path()['json_dir']
-    create_finall_table_of_day()
-    data = json.load(open(os.path.join(json_dir, 'result_fbs.json'), 'r'))
-    return data
+# def get_data_about_articles():
+#     json_dir = create_all_today_path()['json_dir']
+#     create_finall_table_of_day()
+#     data = json.load(open(os.path.join(json_dir, 'result_fbs.json'), 'r'))
+#     return data
 
 
 def get_count_or_0(data, article):

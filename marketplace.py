@@ -31,9 +31,9 @@ from svglib.svglib import svg2rlg
 from reportlab.graphics import renderPDF
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
-import create_stickers_and_db
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 MEDIUM_BORDER = Border(left=Side(style='medium'),
                        right=Side(style='medium'),
                        top=Side(style='medium'),
@@ -43,9 +43,9 @@ THIN_BORDER = Border(left=Side(style='thin'),
                      top=Side(style='thin'),
                      bottom=Side(style='thin'))
 
-cred = json.load(open('credentials.json', 'rb'))
+cred = json.load(open(os.path.join(BASE_DIR,'credentials.json'), 'rb'))
 TOKEN = cred['Савельева']['token']
-pdfmetrics.registerFont(TTFont('FreeSans', 'fonts/FreeSans.ttf'))
+pdfmetrics.registerFont(TTFont('FreeSans', (os.path.join(BASE_DIR,'fonts/FreeSans.ttf'))))
 
 # token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NJRCI6IjdmYTY4YTgyLTQ4ODUtNDAyZi04YzAwLTRmYTUxNTE1YzBiZSJ9.5u_vveflVF8Nl8tl8wAxbN1L3F_BA2EWbUoYyLSnXvo'
 
@@ -156,10 +156,12 @@ def get_barcodes_with_orders_and_chartId(token, orders):
         barcode = order['barcodes'][0]
         id = int(order['orderId'])
         chrt_id = order['chrtId']
+        price = order['totalPrice']
         if barcode not in barcodes_and_ids.keys():
-            barcodes_and_ids[barcode] = {'orders': [id], 'chrtId': chrt_id}
+            barcodes_and_ids[barcode] = {'orders': [id], 'chrtId': chrt_id, 'totalPrice': int(price)}
         else:
             barcodes_and_ids[barcode]['orders'] += [id]
+            barcodes_and_ids[barcode]['totalPrice'] += price
 
     logging.info(f'Получено {len(barcodes_and_ids)} баркодов')
     return barcodes_and_ids
@@ -649,8 +651,8 @@ def create_stickers_by_id(token, name, ids):
 
 
 if __name__ == '__main__':
-    pass
-
+    # pass
+    print(1)
     # print(get_supplies(token))
     # orders = get_all_orders(token, status=1)
 

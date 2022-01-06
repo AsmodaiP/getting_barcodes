@@ -21,9 +21,7 @@ from requests.models import ReadTimeoutError
 from dateutil import tz
 from openpyxl.styles.borders import Border, Side
 import sys
-from openpyxl.styles import Protection, Font, Fill
-from openpyxl.formatting import Rule
-from openpyxl.styles.differential import DifferentialStyle
+from openpyxl.styles import Protection, Font
 from openpyxl.formatting.rule import CellIsRule
 from openpyxl.formatting.rule import ColorScaleRule, CellIsRule, FormulaRule
 from time import sleep
@@ -139,7 +137,8 @@ def create_pdf_stickers_by_ids(ids):
     merger.close()
 
 
-def get_all_orders(status=0, date_end=get_now_time(), date_start='2020-04-05T00:47:17.528082+00:00'):
+def get_all_orders(status=0, date_end=get_now_time(),
+                   date_start='2020-04-05T00:47:17.528082+00:00'):
     logging.info(f'Получение всех заказов со статусом {status}')
     date_end = get_now_time()
     orders = []
@@ -173,6 +172,7 @@ def get_all_orders(status=0, date_end=get_now_time(), date_start='2020-04-05T00:
     orders = clean_orders_from_user_status_1(orders)
     return orders
 
+
 def clean_orders_from_user_status_1(orders):
     logging.info('Очистка заказов от заказов со статусом 1')
     filtered_orders = []
@@ -181,6 +181,7 @@ def clean_orders_from_user_status_1(orders):
             filtered_orders += [order]
     logging.info(f'Осталось  {len(filtered_orders)}')
     return filtered_orders
+
 
 def barcode_key_for_sorting(order):
     return int(order['barcode'])
@@ -227,7 +228,8 @@ def edit_blank_pdf(barcode_info):
     chrtId = f'chrtId = {barcode_info["chrtId"]}'
     blanks = ['pdf/blank1.pdf']
     date = datetime.datetime.now().strftime("%d.%m.%y  %H:%M")
-    for params in (count, name_of_host,date, name, size, color, extra_colors, article, chrtId):
+    for params in (count, name_of_host, date, name, size,
+                   color, extra_colors, article, chrtId):
         a = str(params)
         while len(a) > 0:
             if n > 8:
@@ -256,7 +258,6 @@ def edit_blank_pdf(barcode_info):
         f'{"Size "+size if size != "" else ""} '
         f'{"color "+ color if color != "" else ""} '
         f'{"Доп цвета: "+extra_colors if extra_colors != "" else ""} ')
-
 
 
 def get_StickerEncoded_by_orderId(id):
@@ -380,7 +381,6 @@ def get_data_nomenclature_from_card_by_chrtId(card, chrtId):
 
 
 def get_card_by_chrtId(chrtId):
-    # print(chrtId)
     url = 'https://suppliers-api.wildberries.ru/card/list'
     json_for_request = {
         "id": 1,
@@ -447,7 +447,7 @@ def getting_information_about_barcode_by_chartId(chrtId):
             color = type_and_params['params'][0]['value']
         if type_and_params['type'] == 'Доп. цвета':
             for extra_color in type_and_params['params']:
-                extra_colors += extra_color['value']+' '
+                extra_colors += extra_color['value'] + ' '
     if 'Доп. цвета' in nomenclature.keys():
         extra_colors = nomenclature['Доп. цвета']
     for type_and_params in good['addin']:
@@ -472,7 +472,6 @@ def getting_information_about_barcode_by_chartId(chrtId):
 
 def add_information_about_barcodes_and_len(barcodes):
     for barcode in barcodes.keys():
-        print(barcodes[barcode])
         barcodes[barcode]['info'] = getting_information_about_barcode_by_chartId(
             barcodes[barcode]['chrtId'])
         barcodes[barcode]['info']['count'] = len(barcodes[barcode]['orders'])
@@ -639,9 +638,8 @@ def set_status_to_orders_by_ids(status, ids):
 
     js = json.dumps(data_for_bulk_set_status)
     response = requests.put(url_for_set_status, headers=headers, data=js)
-    print(response.content.decode('utf-8'))
+    logging.info(response.content.decode('utf-8'))
     print(ids)
-    # for ord
 
 
 def set_status_to_orders(status, orders):
@@ -756,7 +754,8 @@ def get_start_and_end_of_current_day():
     start = datetime.datetime(today.year, today.month,
                               today.day, tzinfo=tz.tzutc()).astimezone(tz2)
     end = start + datetime.timedelta(1)
-    return (start.replace(tzinfo=pytz.UTC).isoformat(), end.replace(tzinfo=pytz.UTC).isoformat())
+    return (start.replace(tzinfo=pytz.UTC).isoformat(),
+            end.replace(tzinfo=pytz.UTC).isoformat())
 
 
 def add_json_file_to_today_json(path_to_json_file):
@@ -933,10 +932,10 @@ def filter_orders_by_article(articles, count):
     barcodes = get_barcodes_with_full_info(orders)
     filtered_orders = []
     for barcode in barcodes:
-        if (barcodes[barcode]['info']['article'] in articles) and (len(filtered_orders) <= count):
+        if (barcodes[barcode]['info']['article'] in articles) and (
+                len(filtered_orders) <= count):
             filtered_orders += barcodes[barcode]['orders']
     return filtered_orders[:count]
-
 
 
 def swap_token_by_name(name):
@@ -968,7 +967,7 @@ def add_orders_to_supplie(supplie_id, orders):
     try:
         order_ids = [order['orderId'] for order in orders]
         return add_orders_to_supplie_by_id(supplie_id, order_ids)
-    except:
+    except BaseException:
         return 'Что-то пошло не так'
 
 
@@ -984,77 +983,81 @@ def add_orders_to_supplie_by_id(supplie_id, orders_ids):
     else:
         return response.json()['errorText']
 
-def get_supplies(status:str='ACTIVE'):
+
+def get_supplies(status: str = 'ACTIVE'):
     URL_FOR_GETTING_SUPPLIES = 'https://suppliers-api.wildberries.ru/api/v2/supplies'
     params = {'status': status}
-    response = requests.get(URL_FOR_GETTING_SUPPLIES, params=params, headers=headers)
+    response = requests.get(
+        URL_FOR_GETTING_SUPPLIES,
+        params=params,
+        headers=headers)
     return response.json()['supplies']
+
 
 def create_new_supplie():
     URL_FOR_CREATING_SUPPLIE = 'https://suppliers-api.wildberries.ru/api/v2/supplies'
-    response = requests.post(URL_FOR_CREATING_SUPPLIE,headers=headers)
+    response = requests.post(URL_FOR_CREATING_SUPPLIE, headers=headers)
     data = {
         'supplyId': '',
-        'error':''
+        'error': ''
     }
-    error_dict={
+    error_dict = {
         409: 'У поставщика уже есть активная поставка',
         500: 'Ошибка WB'
     }
     if response.status_code == 201:
-        data['supplyId']=response.json()['supplyId']
+        data['supplyId'] = response.json()['supplyId']
         return data
     data['error'] = error_dict[response.status_code]
     return data
 
-def get_data_svg_stick_of_supplie(supplie_id:str):
+
+def get_data_svg_stick_of_supplie(supplie_id: str):
     data = {'data_for_svg': '', 'error': ''}
-    URL_FOR_GETTING_STICK_OF_SUPPLIE =  f'https://suppliers-api.wildberries.ru/api/v2/supplies/{supplie_id}/barcode'
-    response = requests.get(URL_FOR_GETTING_STICK_OF_SUPPLIE, headers=headers, params={'type': 'svg'})
+    URL_FOR_GETTING_STICK_OF_SUPPLIE = f'https://suppliers-api.wildberries.ru/api/v2/supplies/{supplie_id}/barcode'
+    response = requests.get(
+        URL_FOR_GETTING_STICK_OF_SUPPLIE,
+        headers=headers,
+        params={
+            'type': 'svg'})
     if response.status_code == 200:
         data['data_for_svg'] = response.json()['file']
         return data
-    data['error']=response.json()['errorText']
+    data['error'] = response.json()['errorText']
     return data
 
 
-def create_file_by_data(data:str, path_for_save:str):
+def create_file_by_data(data: str, path_for_save: str):
     file_data = bytes(data, 'utf-8')
     with open(path_for_save, 'wb') as f:
         f.write(codecs.decode(file_data, 'base64'))
 
-def create_stick_of_supplie_by_svg_and_name(path_to_svg:str, name:str, path_for_save:str):
+
+def create_stick_of_supplie_by_svg_and_name(
+        path_to_svg: str, name: str, path_for_save: str):
     drawing = svg2rlg(path_to_svg)
     canvas = Canvas(path_for_save, pagesize=A4)
     canvas.setFont('FreeSans', 20)
-    renderPDF.draw(drawing, canvas,50*mm,190*mm)
-    canvas.drawString(70*mm, 170*mm, name)
+    renderPDF.draw(drawing, canvas, 50 * mm, 190 * mm)
+    canvas.drawString(
+        70 * mm,
+        170 * mm,
+        f'{name} {datetime.datetime.now().strftime("%H:%M")}')
     canvas.save()
+
 
 def create_stick_of_supplie(supplie):
     data = get_data_svg_stick_of_supplie(supplie_id=supplie)['data_for_svg']
     path_to_stick_svg = 'stick.svg'
     path_for_stick_pdf = 'stick.pdf'
     create_file_by_data(data, path_to_stick_svg)
-    create_stick_of_supplie_by_svg_and_name(path_to_svg=path_to_stick_svg, name=NAME, path_for_save=path_for_stick_pdf)
+    create_stick_of_supplie_by_svg_and_name(
+        path_to_svg=path_to_stick_svg,
+        name=NAME,
+        path_for_save=path_for_stick_pdf)
     return path_for_stick_pdf
 
+
 if __name__ == '__main__':
-    # orders = [{'orderId': '122781838', 'dateCreated': '2021-11-15T15:17:59.781585Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 105208, 'officeAddress': 'г. Минск, Нёманская улица, д. 3', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 49128284, 'fio': 'Ерохова Софи ', 'phone': 375445626556}, 'chrtId': 47301927, 'barcode': '2000716391117', 'barcodes': ['2000716391117'], 'status': 1, 'userStatus': 4, 'rid': '300032806170', 'totalPrice': 119200, 'orderUID': '33564142053472337_6f35efb6172b4f31829736e919f810c0', 'deliveryType': 1}, {'orderId': '122628081', 'dateCreated': '2021-11-15T11:50:10.977447Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 103020, 'officeAddress': 'г. Ершов (Саратовская область), Калинина улица, д. 14', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 36211346, 'fio': 'Шохман Виктория Васильевна', 'phone': 79962668271}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429578873', 'totalPrice': 74000, 'orderUID': '27105673053466093_3760b85a04c841fba7095f46aee69498', 'deliveryType': 1}, {'orderId': '122629163', 'dateCreated': '2021-11-15T11:51:44.990127Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 101816, 'officeAddress': 'г. Светлоград (Ставропольский край), Выставочная площадь, д. 8А', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 21141322, 'fio': 'Надоленская Екатерина Анатольевна', 'phone': 79887373561}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429584281', 'totalPrice': 74000, 'orderUID': '19570661053466151_c7886ca43fd643e8a0637dcd0ae99e9b', 'deliveryType': 1}, {'orderId': '122632289', 'dateCreated': '2021-11-15T11:56:00.336669Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 17533, 'officeAddress': 'г. Минеральные Воды (Ставропольский край), улица 50 лет Октября, д. 51', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 23705659, 'fio': 'Сафронова Екатерина Владимировна', 'phone': 79289558635}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '51010909603', 'totalPrice': 74000, 'orderUID': '20852829553466279_947a5cfe80d64b09ad87c5d140ae9acb', 'deliveryType': 1}, {'orderId': '122636095', 'dateCreated': '2021-11-15T12:01:25.042171Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 13593, 'officeAddress': 'г. Благовещенск (Амурская область), Амурская улица, д. 230', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 5652279, 'fio': 'Шаруда Татьяна Николаевна', 'phone': 79140619074}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429611018', 'totalPrice': 85100, 'orderUID': '11826139553466430_0c70ee11e57f4bf1b8e97f4df05c6836', 'deliveryType': 1}, {'orderId': '122636702', 'dateCreated': '2021-11-15T12:02:15.182189Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 0, 'officeAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddressDetails': {'province': 'Республика Хакасия', 'area': 'Таштыпский район', 'city': 'село Таштып', 'street': 'улица Луначарского', 'home': '1', 'flat': '20', 'entrance': '2', 'longitude': 89.887835, 'latitude': 52.800433}, 'userInfo': {'userId': 44171800, 'fio': 'Султрекова Владлена Александровна', 'phone': 79833771263}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429613160', 'totalPrice': 74000, 'orderUID': '31085900053466455_d7530eb8638e4807b5e38b8c8cccee4f', 'deliveryType': 1}, {'orderId': '122636713', 'dateCreated': '2021-11-15T12:02:15.185581Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 0, 'officeAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddressDetails': {
-    #     'province': 'Республика Хакасия', 'area': 'Таштыпский район', 'city': 'село Таштып', 'street': 'улица Луначарского', 'home': '1', 'flat': '20', 'entrance': '2', 'longitude': 89.887835, 'latitude': 52.800433}, 'userInfo': {'userId': 44171800, 'fio': 'Султрекова Владлена Александровна', 'phone': 79833771263}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429613162', 'totalPrice': 74000, 'orderUID': '31085900053466455_d7530eb8638e4807b5e38b8c8cccee4f', 'deliveryType': 1}, {'orderId': '122636712', 'dateCreated': '2021-11-15T12:02:15.225256Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 0, 'officeAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddressDetails': {'province': 'Республика Хакасия', 'area': 'Таштыпский район', 'city': 'село Таштып', 'street': 'улица Луначарского', 'home': '1', 'flat': '20', 'entrance': '2', 'longitude': 89.887835, 'latitude': 52.800433}, 'userInfo': {'userId': 44171800, 'fio': 'Султрекова Владлена Александровна', 'phone': 79833771263}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429613161', 'totalPrice': 74000, 'orderUID': '31085900053466455_d7530eb8638e4807b5e38b8c8cccee4f', 'deliveryType': 1}, {'orderId': '122636714', 'dateCreated': '2021-11-15T12:02:15.226511Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 0, 'officeAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddress': 'село Таштып, улица Луначарского, д. 1, кв. 20, под. 2, дмф. B1234, этаж 2, индекс 655740', 'deliveryAddressDetails': {'province': 'Республика Хакасия', 'area': 'Таштыпский район', 'city': 'село Таштып', 'street': 'улица Луначарского', 'home': '1', 'flat': '20', 'entrance': '2', 'longitude': 89.887835, 'latitude': 52.800433}, 'userInfo': {'userId': 44171800, 'fio': 'Султрекова Владлена Александровна', 'phone': 79833771263}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429613159', 'totalPrice': 74000, 'orderUID': '31085900053466455_d7530eb8638e4807b5e38b8c8cccee4f', 'deliveryType': 1}, {'orderId': '122637253', 'dateCreated': '2021-11-15T12:03:09.553869Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 13593, 'officeAddress': 'г. Благовещенск (Амурская область), Амурская улица, д. 230', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 5652279, 'fio': 'Шаруда Татьяна Николаевна', 'phone': 79140619074}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429615599', 'totalPrice': 85100, 'orderUID': '11826139553466480_e62a90a5e8604316b5baf88998e25d6a', 'deliveryType': 1}, {'orderId': '122639643', 'dateCreated': '2021-11-15T12:06:25.053558Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 16642, 'officeAddress': 'г. Ульяновск (Ульяновская область), улица Шолмова, д. 37А', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 33549544, 'fio': 'Чижова Светлана Юрьевна', 'phone': 79278258162}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429621668', 'totalPrice': 74000, 'orderUID': '25774772053466543_111fcebda91d4446a32075d017d3615f', 'deliveryType': 1}, {'orderId': '122639642', 'dateCreated': '2021-11-15T12:06:25.053652Z', 'wbWhId': 119408, 'storeId': 11087, 'pid': 16642, 'officeAddress': 'г. Ульяновск (Ульяновская область), улица Шолмова, д. 37А', 'deliveryAddress': '', 'deliveryAddressDetails': {'province': '', 'area': '', 'city': '', 'street': '', 'home': '', 'flat': '', 'entrance': '', 'longitude': 0, 'latitude': 0}, 'userInfo': {'userId': 33549544, 'fio': 'Чижова Светлана Юрьевна', 'phone': 79278258162}, 'chrtId': 48115318, 'barcode': '2000790297008', 'barcodes': ['2000790297008'], 'status': 1, 'userStatus': 4, 'rid': '101429621667', 'totalPrice': 74000, 'orderUID': '25774772053466543_111fcebda91d4446a32075d017d3615f', 'deliveryType': 1}]
-    # create_stickers_by_id([150128444])
-    # create_stickers()
-    ids=[136114202, 136117507, 136431025, 145453107, 145839044, 146440969, 146632864, 146686866, 146686874, 146725068, 146848292, 146849990, 147281486, 147281480, 147449261, 147449264, 147505231, 147517251, 147582207, 147582216, 147609962, 147611961, 147650970, 147653102, 147668824, 147768620, 147822762, 147867178, 147887024, 147901307, 147923165, 148038454, 148074830, 148117045, 148131271, 148132090, 148143556, 148185620, 148259309, 148303951, 148326741, 148358141, 148361200, 148940556, 148940552, 148940560, 149010912, 149034584, 149118052, 149118053, 149267600, 149300065, 149485994, 149531175, 149534422, 149774869, 150094017, 150260088, 150477573, 150519597, 150554159, 150589233, 150757062, 150918552, 150933414]
-    # orders = get_all_orders(status=0)
-    # create_stickers_by_id(ids)
-    get_card_by_chrtId([91293224])
-    # for order in orders:
-    #     print(order)
-    #     if order['userStatus'] == 1:
-    #         orders.remove(order)
-    #         print('Удаляю')
-    #     else:
-    #         print('Ne udal')
-    # orders = clean_orders_from_user_status_1(orders)
-    # print(orders)
-# 4 это новые
+    orders = get_all_orders(status=1)
+    print(orders)
