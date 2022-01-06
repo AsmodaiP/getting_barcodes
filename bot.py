@@ -186,6 +186,7 @@ def create_stickers_by_bot(message, update):
         count_of_orders, barcodes = create_stickers()
         if count_of_orders == 0:
             bot.send_message(id, 'На сборке 0 заказов, создавать нечего')
+            main_menu(message, update)
             return 0
         bot.send_message(id, f'Стикеры созданы, количество {count_of_orders}')
         send_results(id)
@@ -196,6 +197,7 @@ def create_stickers_by_bot(message, update):
         for id_for_not in ID_FOR_NOTIFICATION:
             send_results(id_for_not)
             send_db(id_for_not)
+    main_menu(message, update)
 
 
 def get_top_of_articles(message, update):

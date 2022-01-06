@@ -660,7 +660,6 @@ def get_barcodes_with_full_info(orders):
 
 def create_stickers():
     orders = get_all_orders(status=1)
-    print(orders)
     if len(orders) == 0:
         return (0, 0)
     barcodes = get_barcodes_with_full_info(orders)
