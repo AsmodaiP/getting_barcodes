@@ -56,6 +56,12 @@ def get_supplies(token: str, status: str = 'ACTIVE'):
         headers=headers)
     return response.json()['supplies']
 
+def check_token(token):
+    try:
+        get_supplies(token)
+        return True
+    except:
+        return False
 
 def create_new_supplie(token: str):
     URL_FOR_CREATING_SUPPLIE = 'https://suppliers-api.wildberries.ru/api/v2/supplies'

@@ -11,6 +11,7 @@ from telegram import KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Filters
 from fbs import update_table
 import json
+import marketplace
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 log_file = os.path.join(BASE_DIR, 'bot.log')
@@ -60,6 +61,8 @@ TEXT_GET_STICK_OF_SUPPLIE = 'Штрихкод поставки'
 TEXT_GET_CURRENT_SUPPLIE = 'Текущая поставка/Создать новую'
 TEXT_ADD_ORDERS_TO_SUPPLIE = 'Добавить заказы к текущей поставке'
 
+ADD_CLIENT = 'Добавить клиента'
+
 CATEGORY_SUPLLIES = 'Поставки'
 CATEGORY_ON_ASSEMBLY = 'Перевести на сборку'
 CATEGORY_MAIN_MENU = 'В главное меню'
@@ -83,7 +86,8 @@ MAIN_MENU_CATEGORY = (
     [KeyboardButton(TEXT_SWAP_CLIENT)],
     [KeyboardButton(CATEGORY_ON_ASSEMBLY),
      KeyboardButton(CATEGORY_SUPLLIES), ],
-    [KeyboardButton(TEXT_STATS)]
+    [KeyboardButton(TEXT_STATS)],
+    [KeyboardButton(ADD_CLIENT)]
 )
 
 MAIN_MENU = (
@@ -410,6 +414,55 @@ set_on_assembly_by_count_handler = ConversationHandler(
     },
     fallbacks=[CommandHandler('cancel', cancel)])
 
+def add_client_start(bot, update):
+    bot.message.reply_text('Введите имя клиента (будет использоваться при смене аккаунтов), для отмены /cancel')
+    return 'get_token'
+
+def get_name_by_bot(bot, update):
+    update.user_data['name'] = bot.message.text.strip()
+    bot.message.reply_text('Введите токен клиента')
+    return 'get_name_for_sticker'
+
+
+def get_name_for_sticker(bot, update):
+    update.user_data['token'] = bot.message.text.strip()
+    if marketplace.check_token(update.user_data['token']) is False:
+        bot.message.reply_text('Токен невалиден, операция отменена')
+        return ConversationHandler.END
+    bot.message.reply_text('Введите имя, которое будет печататься на стикерах, для отмены /cancel')
+    return 'add_client_to_json'
+
+def add_client_to_json(bot, update):
+    cred = json.load(open('credentials.json', 'rb'))
+    name = update.user_data['name']
+    token = update.user_data['token']
+    name_for_sticker = bot.message.text.strip()
+    if name not in cred.keys():
+        cred[name] = {
+            'token': token,
+            'name': name,
+            'telegram_chat_id': 1126541068
+        }
+        
+        with open('credentials.json', 'w') as f:
+            json.dump(cred, f, ensure_ascii=False, sort_keys=True, indent=2)
+            
+        bot.message.reply_text(f'Клиент {name} успешно добавлен')
+        return ConversationHandler.END
+
+    bot.message.reply_text(f'Запись с таким именем уже существует, операция отменена')
+    return ConversationHandler.END
+
+add_client_handler = ConversationHandler(
+    entry_points=[MessageHandler(Filters.text([ADD_CLIENT]), add_client_start)],
+    states={
+        'get_token':[MessageHandler(Filters.text & ~Filters.command, get_name_by_bot)],
+        'get_name_for_sticker': [MessageHandler(Filters.text & ~Filters.command, get_name_for_sticker)],
+        'add_client_to_json':[MessageHandler(Filters.text & ~Filters.command, add_client_to_json)],
+    },
+    fallbacks=[CommandHandler('cancel', cancel)]
+)
+updater.dispatcher.add_handler(add_client_handler)
 
 def get_stats(bot, update):
     id = bot['message']['chat']['id']
