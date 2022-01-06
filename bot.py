@@ -82,8 +82,8 @@ SUPPLIES_KEYBOARD = (
     [KeyboardButton(CATEGORY_MAIN_MENU)]
 )
 MAIN_MENU_CATEGORY = (
-    [KeyboardButton(TEXT_TO_CREATE_STICKERS)],
-    [KeyboardButton(TEXT_SWAP_CLIENT)],
+    [KeyboardButton(TEXT_TO_CREATE_STICKERS), KeyboardButton(TEXT_SWAP_CLIENT)],
+
     [KeyboardButton(CATEGORY_ON_ASSEMBLY),
      KeyboardButton(CATEGORY_SUPLLIES), ],
     [KeyboardButton(TEXT_STATS)],
