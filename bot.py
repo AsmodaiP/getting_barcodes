@@ -6,7 +6,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from telegram.ext import Updater, CommandHandler, MessageHandler, ConversationHandler
 import create_stickers_and_db
-from create_stickers_and_db import  create_stickers, get_all_orders, set_status_collected_for_all_on_assembly, get_list_of_relative_path_to_all_today_results, get_list_of_relative_path_to_all_logs, NAME, set_status_to_orders
+from create_stickers_and_db import create_stickers, get_all_orders, set_status_collected_for_all_on_assembly, get_list_of_relative_path_to_all_today_results, get_list_of_relative_path_to_all_logs, NAME, set_status_to_orders
 from telegram import KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Filters
 from fbs import update_table
@@ -574,6 +574,10 @@ def create_new_supplie(bot, update):
     bot.message.reply_text(f'Номер созданной поставки {supplie_id}')
     create_and_send_supplie_by_id(bot, update, supplie_id)
     main_menu(bot, update)
+    id = bot['message']['chat']['id']
+    send_notification(
+        f'Пользователь [{id}](tg://user?id={id}) создал новую поставку {supplie_id}'
+        f'для аккаунта {create_stickers_and_db.get_name()}')
     return ConversationHandler.END
 
 
@@ -637,6 +641,7 @@ def add_orders_to_current_supplie(bot, update):
     except Exception:
         bot.message.reply_text(
             f'Что-то пошло не так, попробуйте еще раз, проверив данные')
+
 
 add_orders_to_current_supplie_handler = MessageHandler(
     Filters.text([TEXT_ADD_ORDERS_TO_SUPPLIE]), add_orders_to_current_supplie)
