@@ -16,19 +16,16 @@ from reportlab.lib.units import inch
 import logging
 from logging.handlers import RotatingFileHandler
 import openpyxl
-from openpyxl.formula.translate import Translator
-from requests.models import ReadTimeoutError
 from dateutil import tz
 from openpyxl.styles.borders import Border, Side
-import sys
 from openpyxl.styles import Protection, Font
-from openpyxl.formatting.rule import CellIsRule
-from openpyxl.formatting.rule import ColorScaleRule, CellIsRule, FormulaRule
-from time import sleep
+from openpyxl.formatting.rule import FormulaRule
 from reportlab.graphics import renderPDF
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from svglib.svglib import svg2rlg
+
+
 pdfmetrics.registerFont(TTFont('FreeSans', 'fonts/FreeSans.ttf'))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 log_dir = os.path.join(BASE_DIR, 'logs/')

@@ -638,9 +638,6 @@ def add_orders_to_current_supplie(bot, update):
         bot.message.reply_text(
             f'Что-то пошло не так, попробуйте еще раз, проверив данные')
 
-# add_orders_to_current_supplie_handler =
-
-
 add_orders_to_current_supplie_handler = MessageHandler(
     Filters.text([TEXT_ADD_ORDERS_TO_SUPPLIE]), add_orders_to_current_supplie)
 
