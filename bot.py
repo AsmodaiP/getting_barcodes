@@ -12,6 +12,7 @@ from telegram.ext import Filters
 from fbs import update_table
 import json
 import marketplace
+import codecs
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 log_file = os.path.join(BASE_DIR, 'bot.log')
@@ -63,6 +64,8 @@ TEXT_ADD_ORDERS_TO_SUPPLIE = 'Добавить заказы к текущей п
 
 ADD_CLIENT = 'Добавить клиента'
 
+INSTRUCTION = 'Инструкция'
+
 CATEGORY_SUPLLIES = 'Поставки'
 CATEGORY_ON_ASSEMBLY = 'Перевести на сборку'
 CATEGORY_MAIN_MENU = 'В главное меню'
@@ -86,7 +89,7 @@ MAIN_MENU_CATEGORY = (
 
     [KeyboardButton(CATEGORY_ON_ASSEMBLY),
      KeyboardButton(CATEGORY_SUPLLIES), ],
-    [KeyboardButton(TEXT_STATS)],
+    [KeyboardButton(TEXT_STATS), KeyboardButton(INSTRUCTION)],
     [KeyboardButton(ADD_CLIENT)]
 )
 
@@ -107,6 +110,8 @@ MAIN_MENU_MARKUP = ReplyKeyboardMarkup(
 
 whitelistid = (1617188356, 1126541068, 482957060, 172902983)
 
+def send_instruction(bot, update):
+    bot.message.reply_text(codecs.open('instruction.md', 'r').read(), parse_mode='Markdown')
 
 def send_notification(text):
     for id in ID_FOR_NOTIFICATION:
@@ -151,7 +156,6 @@ def main_meny_category(bot, update):
 
 
 def main_menu(bot, update):
-    # bot.message.reply_text(f'Выберете действие', reply_markup=MAIN_MENU_MARKUP)
     meny_markup = ReplyKeyboardMarkup(
         MAIN_MENU_CATEGORY,
         resize_keyboard=True,
@@ -576,9 +580,9 @@ def close_current_supplie(bot, update):
         if supplies == []:
             return bot.message.reply_text(
                 f'Нет активной поставки, вначале создайте её, добавьте заказы и распечатайте стикеры')
-
+        
         current_supplie = supplies[0]["supplyId"]
-
+        create_stickers_by_bot(bot, update)
         result = create_stickers_and_db.close_supplie(current_supplie)
         if result is None:
             bot.message.reply_text(f'Поставка {current_supplie} закрыта')
@@ -777,5 +781,8 @@ get_finall_db_handler = CommandHandler(
     'get_finall_db', send_finall_db)
 updater.dispatcher.add_handler(get_finall_db_handler)
 
+instruction_handler = MessageHandler(
+    Filters.text([INSTRUCTION]), send_instruction)
+updater.dispatcher.add_handler(instruction_handler)
 
 updater.start_polling()
