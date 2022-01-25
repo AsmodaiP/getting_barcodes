@@ -511,10 +511,14 @@ def create_db_for_checking(barcodes):
     sheet['C1'] = 'Наименование'
     sheet['D1'] = 'Баркод'
     sheet['E1'] = 'Stick'
+    sheet['F1'] = 'Проверено?'
+
     sheet.protection.sheet = True
     sheet.protection.set_password('osdfjl2')
     sheet.protection.enable()
-
+    green_fill = PatternFill(bgColor="a0db8e")
+    sheet.conditional_formatting.add('F2:F3000', FormulaRule(
+        formula=['IF(F2="Да",True,False)'], stopIfTrue=True, fill=green_fill))
     row = 2
     logging.info('Формирование xlsx файла')
     for barcode in barcodes_and_stickers.keys():
@@ -531,6 +535,8 @@ def create_db_for_checking(barcodes):
             sheet[row][4].value = sticker_encoded
             sheet[f'K{row}'] = f'=IF(ISERROR(MATCH(J{row+1},L{row},0)),"",TRUE)'
             sheet[f'L{row}'] = f'=IF(ISERROR(INDEX(D:D,MATCH(J{row},E:E,0),1)),"",INDEX(D:D,MATCH(J{row},E:E,0),1))'
+            
+            sheet[f'F{row}']= f'=IF(NOT(ISERROR(MATCH(E{row},Проверка!A:A,0))),"Да","")'
             row += 1
 
     book.active = 1
@@ -569,9 +575,7 @@ def create_db_for_checking(barcodes):
     cell.value = f'=SUM(C2:C{row-1})'
     cell.border = THIN_BORDER
 
-    green_fill = PatternFill(bgColor="a0db8e")
-    sheet.conditional_formatting.add('C1:C3000', FormulaRule(
-        formula=['IF(AND(C1=B1, C1<>""),True,False)'], stopIfTrue=True, fill=green_fill))
+
 
     book.active = 2
     sheet = book.active
@@ -1055,5 +1059,9 @@ def create_stick_of_supplie(supplie):
 
 
 if __name__ == '__main__':
-    orders = get_all_orders(status=1)
-    print(orders)
+    # orders = get_all_orders(status=1)
+    # print(orders)
+
+    with open('barcodes.json', 'r', encoding='utf-8') as f:
+        bar = json.load(f)
+    create_db_for_checking(bar)
