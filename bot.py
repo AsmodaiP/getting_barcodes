@@ -446,7 +446,7 @@ def add_client_to_json(bot, update):
     if name not in cred.keys():
         cred[name] = {
             'token': token,
-            'name': name,
+            'name': name_for_sticker,
             'telegram_chat_id': 1126541068
         }
         
