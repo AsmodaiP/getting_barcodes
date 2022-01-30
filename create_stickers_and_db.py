@@ -218,7 +218,7 @@ def edit_blank_pdf(barcode_info):
     name_of_host = NAME
     name = barcode_info['name']
     size = barcode_info['size']
-    article = f'article = {barcode_info["article"]}'
+    article = f'art {barcode_info["article"]}'
     color = barcode_info['color']
     extra_colors = barcode_info['extra_colors']
     count = 'Количество = ' + str(barcode_info['count'])
