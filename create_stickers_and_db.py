@@ -1,5 +1,6 @@
 import datetime
 import json
+from math import inf
 from sys import path
 from openpyxl.styles.fills import PatternFill
 import pytz
@@ -511,10 +512,12 @@ def create_db_for_checking(barcodes):
     sheet['C1'] = 'Наименование'
     sheet['D1'] = 'Баркод'
     sheet['E1'] = 'Stick'
-    sheet['F1'] = 'Проверено?'
+    sheet['F1'] = 'Размер'
+    sheet['G1'] = 'Цвет'
+    sheet['H1'] = 'Проверено?'
 
     sheet.protection.sheet = True
-    sheet.protection.set_password('osdfjl2')
+    sheet.protection.set_password('werock')
     sheet.protection.enable()
     green_fill = PatternFill(bgColor="a0db8e")
     sheet.conditional_formatting.add('F2:F3000', FormulaRule(
@@ -525,6 +528,7 @@ def create_db_for_checking(barcodes):
         barcode_info = barcodes_and_stickers[barcode]
         for order in barcode_info.keys():
             info = barcode_info[order]
+            print(info)
             article = info['article']
             sticker_encoded = info['sticker_encoded']
             name = info['name']
@@ -533,10 +537,17 @@ def create_db_for_checking(barcodes):
             sheet[row][2].value = name
             sheet[row][3].value = str(barcode)
             sheet[row][4].value = sticker_encoded
-            sheet[f'K{row}'] = f'=IF(ISERROR(MATCH(J{row+1},L{row},0)),"",TRUE)'
-            sheet[f'L{row}'] = f'=IF(ISERROR(INDEX(D:D,MATCH(J{row},E:E,0),1)),"",INDEX(D:D,MATCH(J{row},E:E,0),1))'
+
+            sheet[f'F{row}'] = info['size']
+            sheet[f'G{row}'].value = info['color']
+            sheet[f'H{row}']= f'=IF(NOT(ISERROR(MATCH(E{row},Проверка!A:A,0))),"Да","")'
             
-            sheet[f'F{row}']= f'=IF(NOT(ISERROR(MATCH(E{row},Проверка!A:A,0))),"Да","")'
+
+
+            # sheet[f'M{row}'] = f'=IF(ISERROR(MATCH(J{row+1},M{row},0)),"",TRUE)'
+            # sheet[f'N{row}'] = f'=IF(ISERROR(INDEX(D:D,MATCH(J{row},E:E,0),1)),"",INDEX(D:D,MATCH(J{row},E:E,0),1))'
+            
+            
             row += 1
 
     book.active = 1
@@ -549,7 +560,7 @@ def create_db_for_checking(barcodes):
     sheet['B1'].border = THIN_BORDER
     row = 2
     sheet.protection.sheet = True
-    sheet.protection.set_password('osdfjl2')
+    sheet.protection.set_password('werock')
     sheet.protection.enable()
     for article in article_counts.keys():
         cell = sheet.cell(row=row, column=1)
@@ -575,6 +586,20 @@ def create_db_for_checking(barcodes):
     cell.value = f'=SUM(C2:C{row-1})'
     cell.border = THIN_BORDER
 
+    sheet['F1'] = 'Баркод'
+    sheet['G1'] = 'Артикул'
+    sheet['H1'] = 'Размер'
+    sheet['I1'] = 'Цвет'
+    sheet['J1'] = 'Собрано'
+    row = 2
+    for barcode in barcodes_and_stickers.keys():
+        info = barcodes[barcode]['info']
+        sheet[f'F{row}'] = barcode
+        sheet[f'G{row}'] = info['article']
+        sheet[f'H{row}'] = info['size']
+        sheet[f'I{row}'] = info['color']
+        sheet[f'J{row}'] = f'=COUNTIF(Проверка!A:A,F{row})'
+        row += 1
 
 
     book.active = 2
@@ -607,7 +632,7 @@ def create_db_for_checking(barcodes):
                         style='medium'), top=Side(style='thin'), bottom=Side(style='medium'))
                     sheet[f'D{row}'] = f'=IF(AND(B{row-1}<>"Ошибка", A{row-1}<>""),INDEX(Sheet!B:B, MATCH(A{row},Sheet!D:D,0),1), "")'
                 sheet[f'A{row}'].number_format = '@'
-                sheet[f'A{row}'].protection = Protection(locked=False)
+                # sheet[f'A{row}'].protection = Protection(locked=False)
                 row += 1
     for column in ['C', 'D']:
         for cell in sheet[column]:
@@ -1065,3 +1090,9 @@ if __name__ == '__main__':
     with open('barcodes.json', 'r', encoding='utf-8') as f:
         bar = json.load(f)
     create_db_for_checking(bar)
+    # barcodes = get_barcodes_with_full_info(orders)
+    # with open('barcodes.json', 'w', encoding='utf-8') as f:
+    #     json.dump(barcodes, f, ensure_ascii=False)
+    # add_json_file_to_today_json('barcodes.json')
+    # create_pdf_stickers_by_barcodes(barcodes)
+    # return (len(orders), barcodes)
