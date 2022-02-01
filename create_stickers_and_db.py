@@ -20,6 +20,7 @@ import openpyxl
 from dateutil import tz
 from openpyxl.styles.borders import Border, Side
 from openpyxl.styles import Protection, Font
+from openpyxl.styles import Alignment
 from openpyxl.formatting.rule import FormulaRule
 from reportlab.graphics import renderPDF
 from reportlab.lib.pagesizes import A4
@@ -553,8 +554,9 @@ def create_db_for_checking(barcodes):
     book.active = 1
     sheet = book.active
     sheet['A1'] = 'Артикул'
+    sheet.column_dimensions['A'].width = 20
     sheet['A1'].border = THIN_BORDER
-    sheet['B1'] = 'Количество'
+    sheet['B1'] = 'Колво'
     sheet['B1'].border = THIN_BORDER
     sheet['C1'] = 'Собрано'
     sheet['B1'].border = THIN_BORDER
@@ -587,9 +589,12 @@ def create_db_for_checking(barcodes):
     cell.border = THIN_BORDER
 
     sheet['F1'] = 'Баркод'
+    sheet.column_dimensions['F'].width = 15
     sheet['G1'] = 'Артикул'
+    sheet.column_dimensions['G'].width = 20
     sheet['H1'] = 'Размер'
     sheet['I1'] = 'Цвет'
+    sheet.column_dimensions['I'].width = 14
     sheet['J1'] = 'Собрано'
     row = 2
     for barcode in barcodes_and_stickers.keys():
@@ -598,8 +603,12 @@ def create_db_for_checking(barcodes):
         sheet[f'G{row}'] = info['article']
         sheet[f'H{row}'] = info['size']
         sheet[f'I{row}'] = info['color']
-        sheet[f'J{row}'] = f'=COUNTIF(Проверка!A:A,F{row})'
+        sheet[f'J{row}'] = f'=COUNTIF(Проверка!C:C,F{row})'
         row += 1
+
+    for row in sheet.iter_rows():
+        for cell in row:      
+            cell.alignment = Alignment(wrap_text=True,vertical='top') 
 
 
     book.active = 2
@@ -632,7 +641,7 @@ def create_db_for_checking(barcodes):
                         style='medium'), top=Side(style='thin'), bottom=Side(style='medium'))
                     sheet[f'D{row}'] = f'=IF(AND(B{row-1}<>"Ошибка", A{row-1}<>""),INDEX(Sheet!B:B, MATCH(A{row},Sheet!D:D,0),1), "")'
                 sheet[f'A{row}'].number_format = '@'
-                # sheet[f'A{row}'].protection = Protection(locked=False)
+                sheet[f'A{row}'].protection = Protection(locked=False)
                 row += 1
     for column in ['C', 'D']:
         for cell in sheet[column]:
