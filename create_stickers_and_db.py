@@ -525,11 +525,12 @@ def create_db_for_checking(barcodes):
         formula=['IF(F2="Да",True,False)'], stopIfTrue=True, fill=green_fill))
     row = 2
     logging.info('Формирование xlsx файла')
+    sheet.column_dimensions['D'].width = 15
     for barcode in barcodes_and_stickers.keys():
         barcode_info = barcodes_and_stickers[barcode]
         for order in barcode_info.keys():
             info = barcode_info[order]
-            print(info)
+
             article = info['article']
             sticker_encoded = info['sticker_encoded']
             name = info['name']
