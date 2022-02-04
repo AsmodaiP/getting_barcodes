@@ -1,4 +1,5 @@
 import datetime
+from importlib.abc import MetaPathFinder
 import json
 from math import inf
 from sys import path
@@ -477,6 +478,23 @@ def add_information_about_barcodes_and_len(barcodes):
     return barcodes
 
 
+def input_colum_names(column_names, sheet, border=MEDIUM_BORDER):
+    column = 1
+    row = 1
+    for column_name in column_names:
+        cell = sheet.cell(row=row, column=column)
+        cell.value = column_name
+        cell.border = border
+        column += 1
+
+def input_row(values, sheet, row, start_column=1, border=MEDIUM_BORDER):
+    column = start_column
+    for value in values:
+        cell = sheet.cell(row=row, column=column)
+        cell.value = value
+        cell.border = border
+        column += 1
+
 def create_db_for_checking(barcodes):
     barcodes_and_stickers = {}
     logging.info('Получение расшифрованных стикеров')
@@ -517,6 +535,9 @@ def create_db_for_checking(barcodes):
     sheet['G1'] = 'Цвет'
     sheet['H1'] = 'Проверено?'
 
+    column_names = ('Номер заказа', 'Артикул', 'Наименование', 'Баркод', 'Stick', 'Размер', 'Цвет', 'Проверено?')
+    input_colum_names(column_names, sheet)
+
     sheet.protection.sheet = True
     sheet.protection.set_password('werock')
     sheet.protection.enable()
@@ -525,87 +546,51 @@ def create_db_for_checking(barcodes):
         formula=['IF(F2="Да",True,False)'], stopIfTrue=True, fill=green_fill))
     row = 2
     logging.info('Формирование xlsx файла')
+    sheet.column_dimensions['A'].width = 10
     sheet.column_dimensions['D'].width = 15
+    sheet.column_dimensions['E'].width = 10
     for barcode in barcodes_and_stickers.keys():
         barcode_info = barcodes_and_stickers[barcode]
         for order in barcode_info.keys():
             info = barcode_info[order]
-
             article = info['article']
             sticker_encoded = info['sticker_encoded']
             name = info['name']
-            sheet[row][0].value = str(order)
-            sheet[row][1].value = str(article)
-            sheet[row][2].value = name
-            sheet[row][3].value = str(barcode)
-            sheet[row][4].value = sticker_encoded
-
-            sheet[f'F{row}'] = info['size']
-            sheet[f'G{row}'].value = info['color']
-            sheet[f'H{row}']= f'=IF(NOT(ISERROR(MATCH(E{row},Проверка!A:A,0))),"Да","")'
-            
-
-
-            # sheet[f'M{row}'] = f'=IF(ISERROR(MATCH(J{row+1},M{row},0)),"",TRUE)'
-            # sheet[f'N{row}'] = f'=IF(ISERROR(INDEX(D:D,MATCH(J{row},E:E,0),1)),"",INDEX(D:D,MATCH(J{row},E:E,0),1))'
-            
-            
+            values = (str(order), str(article), name, str(barcode), sticker_encoded, info['size'], info['color'], f'=IF(NOT(ISERROR(MATCH(E{row},Проверка!A:A,0))),"Да","")' )
+            input_row(values, sheet, row, start_column=1, border=MEDIUM_BORDER)
             row += 1
 
     book.active = 1
     sheet = book.active
-    sheet['A1'] = 'Артикул'
-    sheet.column_dimensions['A'].width = 20
-    sheet['A1'].border = THIN_BORDER
-    sheet['B1'] = 'Колво'
-    sheet['B1'].border = THIN_BORDER
-    sheet['C1'] = 'Собрано'
-    sheet['B1'].border = THIN_BORDER
+
+    column_names = ('Баркод', 'Артикул', 'Размем', 'Цвет', 'Должно быть', 'Проверено')
+    input_colum_names(column_names, sheet)
+    
+    sheet.column_dimensions['A'].width = 15
+
     row = 2
     sheet.protection.sheet = True
     sheet.protection.set_password('werock')
     sheet.protection.enable()
-    for article in article_counts.keys():
-        cell = sheet.cell(row=row, column=1)
-        cell.value = article
-        cell.border = THIN_BORDER
-
-        cell = sheet.cell(row=row, column=2)
-        cell.value = article_counts[article]
-        cell.border = THIN_BORDER
-
-        cell = sheet.cell(row=row, column=3)
-        cell.value = f'=COUNTIF(Проверка!D:D,A{row})'
-        cell.border = THIN_BORDER
-        row += 1
-    cell = sheet.cell(row=row, column=1)
-    cell.value = 'Сумма'
-    cell.border = MEDIUM_BORDER
-
-    cell = sheet.cell(row=row, column=2)
-    cell.value = f'=SUM(B2:B{row-1})'
-    cell.border = MEDIUM_BORDER
-    cell = sheet.cell(row=row, column=3)
-    cell.value = f'=SUM(C2:C{row-1})'
-    cell.border = THIN_BORDER
-
-    sheet['F1'] = 'Баркод'
-    sheet.column_dimensions['F'].width = 15
-    sheet['G1'] = 'Артикул'
-    sheet.column_dimensions['G'].width = 20
-    sheet['H1'] = 'Размер'
-    sheet['I1'] = 'Цвет'
-    sheet.column_dimensions['I'].width = 14
-    sheet['J1'] = 'Собрано'
     row = 2
+
     for barcode in barcodes_and_stickers.keys():
+        column = 1
         info = barcodes[barcode]['info']
-        sheet[f'F{row}'] = barcode
-        sheet[f'G{row}'] = info['article']
-        sheet[f'H{row}'] = info['size']
-        sheet[f'I{row}'] = info['color']
-        sheet[f'J{row}'] = f'=COUNTIF(Проверка!C:C,F{row})'
+        count = len(barcodes[barcode]['orders'])
+
+        values = (barcode, info['article'], info['size'], info['color'], count, f'=COUNTIF(Проверка!A:A,A{row})')
+        input_row(values, sheet, row, start_column=1)
+
         row += 1
+
+
+    cell = sheet.cell(row=row, column=5)
+    cell.value = f'=SUM(E2:E{row-1})'
+    cell.border = MEDIUM_BORDER
+    cell = sheet.cell(row=row, column=6)
+    cell.value = f'=SUM(F2:F{row-1})'
+    cell.border = MEDIUM_BORDER
 
     for row in sheet.iter_rows():
         for cell in row:      
@@ -630,7 +615,6 @@ def create_db_for_checking(barcodes):
         for order in barcode_info.keys():
             for i in range(2):
                 if row % 2 == 0:
-                    # =IF(AND(ISERROR(MATCH(A3,C2,0)),A2<>"",A3<>""),"Ошибка","")
                     sheet[f'A{row}'].border = Border(left=Side(style='medium'), right=Side(
                         style='thin'), top=Side(style='medium'), bottom=Side(style='thin'))
                     sheet[f'B{row}'] = f'=IF(AND(ISERROR(MATCH(A{row+1},C{row},0)),A{row}<>"",A{row+1}<>""),"Ошибка","")'
