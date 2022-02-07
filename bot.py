@@ -326,6 +326,7 @@ def create_stickers_by_json(message, update):
             send_results(id)
         except Exception:
             bot.send_message(id, 'При создании стикеров что-то пошло не так, проверьте, соответствует ли файл заказов с текущем аккаунтом, в противном случае смените аккаунт и попробуйте еще раз')
+            return 0
 
         succsess = False
         while not succsess:
