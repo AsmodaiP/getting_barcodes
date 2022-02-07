@@ -316,13 +316,17 @@ def create_stickers_by_json(message, update):
         orders = json.load(f)
     if True:
         bot.send_message(id, 'Начато создание стикеров')
-        count_of_orders, barcodes = create_stickers_and_db.create_stickers_by_orders(orders)
-        if count_of_orders == 0:
-            bot.send_message(id, 'На сборке 0 заказов, создавать нечего')
-            main_menu(message, update)
-            return 0
-        bot.send_message(id, f'Стикеры созданы, количество {count_of_orders}')
-        send_results(id)
+        try:
+            count_of_orders, barcodes = create_stickers_and_db.create_stickers_by_orders(orders)
+            if count_of_orders == 0:
+                bot.send_message(id, 'На сборке 0 заказов, создавать нечего')
+                main_menu(message, update)
+                return 0
+            bot.send_message(id, f'Стикеры созданы, количество {count_of_orders}')
+            send_results(id)
+        except Exception:
+            bot.send_message(id, 'При создании стикеров что-то пошло не так, проверьте, соответствует ли файл заказов с текущем аккаунтом, в противном случае смените аккаунт и попробуйте еще раз')
+
         succsess = False
         while not succsess:
             count_of_try = 0
