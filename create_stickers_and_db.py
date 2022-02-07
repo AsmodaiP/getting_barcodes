@@ -431,6 +431,7 @@ def get_card_by_nmid(nmid):
 
 
 def getting_information_about_barcode_by_chartId(chrtId):
+    print(1)
     good = get_card_by_chrtId(chrtId)
     supplierVendorCode = good['supplierVendorCode']
     name = ''
@@ -676,8 +677,12 @@ def set_status_to_orders(status, orders):
 
 def get_barcodes_with_full_info(orders):
     barcodes = get_barcodes_with_orders_and_chartId(orders)
+    print(1)
     barcodes = add_information_about_barcodes_and_len(barcodes)
+
+    print(2)
     barcodes = sorted_barcodes_by_count_of_orders(barcodes)
+    print(3)
     return barcodes
 
 
@@ -1076,6 +1081,11 @@ def create_stick_of_supplie(supplie):
         path_for_save=path_for_stick_pdf)
     return path_for_stick_pdf
 
+def create_db_by_file(file):
+    orders = json.load(file)
+    barcodes = get_barcodes_with_full_info(orders)
+    
+    create_db_for_checking(barcodes)
 
 if __name__ == '__main__':
     # orders = get_all_orders(status=1)

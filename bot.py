@@ -1,3 +1,4 @@
+from datetime import datetime
 import telegram
 import os
 import sys
@@ -305,6 +306,14 @@ def force_update_table(message, update):
     #     send_notification(f'Что-то не так с артикулами \n{str_errors}')
     #bot.send_message(id, result)
 
+def get_db_by_json(bot, update):
+    file_id = bot.message.document['file_id']
+    name = bot.message.document['file_name']
+    file = update.bot.get_file(file_id)
+    file.download(name)
+    with open(name, 'r') as f:
+        create_stickers_and_db.create_db_by_file(file=f)
+    send_db(bot['message']['chat']['id'])
 
 updater = Updater(token=TELEGRAM_TOKEN)
 
@@ -793,5 +802,10 @@ updater.dispatcher.add_handler(get_finall_db_handler)
 instruction_handler = MessageHandler(
     Filters.text([INSTRUCTION]), send_instruction)
 updater.dispatcher.add_handler(instruction_handler)
+
+document_handler = MessageHandler(
+    Filters.document.file_extension("json"),
+    get_db_by_json)
+updater.dispatcher.add_handler(document_handler)
 
 updater.start_polling()
