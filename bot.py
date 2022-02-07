@@ -165,7 +165,7 @@ def main_menu(bot, update):
 
 def get_results(message, update):
     id = message['message']['chat']['id']
-    if id in whitelistid:
+    if True:
         send_results(id)
 
 
@@ -185,7 +185,7 @@ def update_table_and_send_notification():
 
 def create_stickers_by_bot(message, update):
     id = message['message']['chat']['id']
-    if id in whitelistid:
+    if True:
         bot.send_message(id, 'Начато создание стикеров')
         count_of_orders, barcodes = create_stickers()
         if count_of_orders == 0:
@@ -206,8 +206,8 @@ def create_stickers_by_bot(message, update):
 
 def get_top_of_articles(message, update):
     id = message['message']['chat']['id']
-    if id not in whitelistid:
-        return 0
+    # if id not in whitelistid:
+    #     return 0
     msg = ''
     bot.send_message(id, 'Идет формирование топа')
     try:
@@ -226,7 +226,7 @@ def get_top_of_articles(message, update):
 
 def set_status_collected_for_all_on_assembly_by_bot(message, update):
     id = message['message']['chat']['id']
-    if id in whitelistid:
+    if True:
         set_status_collected_for_all_on_assembly()
         bot.send_message(id, 'Все товары переведены в "Собрано"')
 
@@ -242,7 +242,7 @@ def send_all_today_results(id):
 
 def get_all_today_results(message, update):
     id = message['message']['chat']['id']
-    if id in whitelistid:
+    if True:
         send_all_today_results(id)
 
 
@@ -254,13 +254,13 @@ def send_all_logs(id):
 
 def get_logs(message, update):
     id = message['message']['chat']['id']
-    if id in whitelistid:
+    if True:
         send_all_logs(id)
 
 
 def send_finall_db(message, update):
     id = message['message']['chat']['id']
-    if id in whitelistid:
+    if True:
         list_of_json = create_stickers_and_db.get_list_of_relative_path_to_all_today_json()
         if list_of_json == []:
             bot.send_message(id, 'Сегодня стикеры через бота не получались')
@@ -271,7 +271,7 @@ def send_finall_db(message, update):
 
 def put_all_on_collected(message, update):
     id = message['message']['chat']['id']
-    if id in whitelistid:
+    if True:
         orders_count = create_stickers_and_db.set_status_collected_for_all_on_assembly()
         if orders_count == 0:
             bot.send_message(
@@ -284,7 +284,7 @@ def put_all_on_collected(message, update):
 
 def force_update_table(message, update):
     id = message['message']['chat']['id']
-   # if id in whitelistid:
+   # if True:
     #    result_and_errors = update_table()
     #   result = result_and_errors['result']
     #  errors = result_and_errors['erors']
@@ -377,8 +377,8 @@ def cancel(bot, update):
 
 def set_on_assembly_by_count(bot, update):
     id = bot['message']['chat']['id']
-    if not id in whitelistid:
-        return ConversationHandler.END
+    # if not id in whitelistid:
+    #     return ConversationHandler.END
     update.user_data['count'] = bot.message.text.strip()
 
     try:
@@ -472,8 +472,7 @@ updater.dispatcher.add_handler(add_client_handler)
 
 def get_stats(bot, update):
     id = bot['message']['chat']['id']
-    if not id in whitelistid:
-        return ConversationHandler.END
+
     new_orders = get_all_orders(status=0)
     count_new = (len(new_orders))
     _, count_order_without_address = create_stickers_and_db.check_and_delete_orders_with_blank_officeAddress(
