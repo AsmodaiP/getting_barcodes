@@ -206,8 +206,8 @@ def create_stickers_by_bot(message, update):
 
 def get_top_of_articles(message, update):
     id = message['message']['chat']['id']
-    if id not in whitelistid:
-        return 0
+    # if id not in whitelistid:
+    #     return 0
     msg = ''
     bot.send_message(id, 'Идет формирование топа')
     try:
@@ -377,8 +377,8 @@ def cancel(bot, update):
 
 def set_on_assembly_by_count(bot, update):
     id = bot['message']['chat']['id']
-    if not id in whitelistid:
-        return ConversationHandler.END
+    # if not id in whitelistid:
+    #     return ConversationHandler.END
     update.user_data['count'] = bot.message.text.strip()
 
     try:
@@ -472,8 +472,7 @@ updater.dispatcher.add_handler(add_client_handler)
 
 def get_stats(bot, update):
     id = bot['message']['chat']['id']
-    if not id in whitelistid:
-        return ConversationHandler.END
+
     new_orders = get_all_orders(status=0)
     count_new = (len(new_orders))
     _, count_order_without_address = create_stickers_and_db.check_and_delete_orders_with_blank_officeAddress(
