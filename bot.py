@@ -194,8 +194,18 @@ def create_stickers_by_bot(message, update):
             return 0
         bot.send_message(id, f'Стикеры созданы, количество {count_of_orders}')
         send_results(id)
-        create_stickers_and_db.create_db_for_checking(barcodes)
-        send_db(id)
+
+        succsess = False
+        while not succsess:
+            count_of_try = 0
+            try:
+                create_stickers_and_db.create_db_for_checking(barcodes)
+                send_db(id)
+                succsess = True
+            except Exception:
+                count_of_try += 1
+                if count_of_try > 4:
+                    break
         send_notification(
             f'Пользователь [{id}](tg://user?id={id}) получил стикеры, {count_of_orders}')
         for id_for_not in ID_FOR_NOTIFICATION:
