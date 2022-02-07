@@ -337,6 +337,7 @@ def create_stickers_by_json(message, update):
             except Exception:
                 count_of_try += 1
                 if count_of_try > 4:
+                    succsess = True
                     break
         send_notification(
             f'Пользователь [{id}](tg://user?id={id}) получил стикеры, {count_of_orders}')
