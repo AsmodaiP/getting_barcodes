@@ -306,13 +306,39 @@ def force_update_table(message, update):
     #     send_notification(f'Что-то не так с артикулами \n{str_errors}')
     #bot.send_message(id, result)
 
-def get_db_by_json(bot, update):
-    file_id = bot.message.document['file_id']
-    name = bot.message.document['file_name']
+def create_stickers_by_json(message, update):
+    id = message['message']['chat']['id']
+    file_id = message.message.document['file_id']
+    name = message.message.document['file_name']
     file = update.bot.get_file(file_id)
     file.download(name)
     with open(name, 'r') as f:
-        create_stickers_and_db.create_db_by_file(file=f)
+        orders = json.load(f)
+    if True:
+        bot.send_message(id, 'Начато создание стикеров')
+        count_of_orders, barcodes = create_stickers_and_db.create_stickers_by_orders(orders)
+        if count_of_orders == 0:
+            bot.send_message(id, 'На сборке 0 заказов, создавать нечего')
+            main_menu(message, update)
+            return 0
+        bot.send_message(id, f'Стикеры созданы, количество {count_of_orders}')
+        send_results(id)
+        succsess = False
+        while not succsess:
+            count_of_try = 0
+            try:
+                create_stickers_and_db.create_db_for_checking(barcodes)
+                send_db(id)
+                succsess = True
+            except Exception:
+                count_of_try += 1
+                if count_of_try > 4:
+                    break
+        send_notification(
+            f'Пользователь [{id}](tg://user?id={id}) получил стикеры, {count_of_orders}')
+        for id_for_not in ID_FOR_NOTIFICATION:
+            send_results(id_for_not)
+            send_db(id_for_not)
     send_db(bot['message']['chat']['id'])
 
 updater = Updater(token=TELEGRAM_TOKEN)
@@ -805,7 +831,7 @@ updater.dispatcher.add_handler(instruction_handler)
 
 document_handler = MessageHandler(
     Filters.document.file_extension("json"),
-    get_db_by_json)
+    create_stickers_by_json)
 updater.dispatcher.add_handler(document_handler)
 
 updater.start_polling()

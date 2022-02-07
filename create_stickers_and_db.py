@@ -697,6 +697,16 @@ def create_stickers():
     create_pdf_stickers_by_barcodes(barcodes)
     return (len(orders), barcodes)
 
+def create_stickers_by_orders(orders):
+    if len(orders) == 0:
+        return (0, 0)
+    barcodes = get_barcodes_with_full_info(orders)
+    with open('barcodes.json', 'w', encoding='utf-8') as f:
+        json.dump(barcodes, f, ensure_ascii=False)
+    add_json_file_to_today_json('barcodes.json')
+    create_pdf_stickers_by_barcodes(barcodes)
+    return (len(orders), barcodes)
+
 
 def filter_orders_by_barcode(orders, barcode):
     filtered_barcodes = []
