@@ -87,15 +87,10 @@ def update_stocks(token, spreasheet_id):
 
 
 if __name__ == '__main__':
-    while True:
-        try:
-            update_stocks(token=TOKEN, spreasheet_id=SPREADSHEET_ID)
-            print('/n /n /n')
-            update_stocks(
-                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NJRCI6IjM5NmJlNDdiLTA4NTAtNDU0OC05MzQ5LTIzOTUwZTE1ODJkNyJ9.LHaGc8QJnkjAsLxqCis2mxdYL4sbpjm63UvifkkBEtk',
-                '1VzFIi6KQzav7VFWh3ldDdVh866Tge4AsWy7SD3WKQuw')
-            print('/n /n /n')
-        except Exception as e:
-            bot.send_message(ID_FOR_NOTIFICATION[0], f'Ошибка {e} при обновлении остатков')
-        time.sleep(300)
- 
+    try:
+        update_stocks(token=TOKEN, spreasheet_id=SPREADSHEET_ID)
+        update_stocks(
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3NJRCI6IjM5NmJlNDdiLTA4NTAtNDU0OC05MzQ5LTIzOTUwZTE1ODJkNyJ9.LHaGc8QJnkjAsLxqCis2mxdYL4sbpjm63UvifkkBEtk',
+            '1VzFIi6KQzav7VFWh3ldDdVh866Tge4AsWy7SD3WKQuw')
+    except Exception as e:
+        bot.send_message(ID_FOR_NOTIFICATION[0], f'Ошибка {e} при обновлении остатков')
