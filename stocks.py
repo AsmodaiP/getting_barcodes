@@ -11,7 +11,7 @@ import telegram
 import time
 
 load_dotenv()
-cred = json.load(open('credentials.json', 'rb'))
+cred = json.load(open('/home/asmodai/rocketbot/credentials.json', 'rb'))
 TOKEN = cred['БелотеловАГ']['token']
 def get_stocks(token):
     headers = {
