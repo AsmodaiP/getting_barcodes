@@ -570,10 +570,6 @@ def create_db_for_checking(barcodes):
     sheet.column_dimensions['A'].width = 15
 
     row = 2
-    sheet.protection.sheet = True
-    sheet.protection.set_password('werock')
-    sheet.protection.enable()
-    row = 2
 
     for barcode in barcodes_and_stickers.keys():
         column = 1
