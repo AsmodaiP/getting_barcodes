@@ -11,3 +11,4 @@ nohup.out
 *.log
 /__pycache__
 *.save*
+stocks.py
