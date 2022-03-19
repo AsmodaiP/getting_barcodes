@@ -564,7 +564,7 @@ def create_db_for_checking(barcodes):
     book.active = 1
     sheet = book.active
 
-    column_names = ('Баркод', 'Артикул', 'Размем', 'Цвет', 'Должно быть', 'Проверено')
+    column_names = ('Баркод', 'Артикул', 'Размем', 'Цвет', 'Должно быть', 'Проверено', 'Комментарий')
     input_colum_names(column_names, sheet)
     
     sheet.column_dimensions['A'].width = 15
@@ -576,7 +576,7 @@ def create_db_for_checking(barcodes):
         info = barcodes[barcode]['info']
         count = len(barcodes[barcode]['orders'])
 
-        values = (barcode, info['article'], info['size'], info['color'], count, f'=COUNTIF(Проверка!A:A,A{row})')
+        values = (barcode, info['article'], info['size'], info['color'], count, f'=COUNTIF(Проверка!A:A,A{row})', '')
         input_row(values, sheet, row, start_column=1)
 
         row += 1
