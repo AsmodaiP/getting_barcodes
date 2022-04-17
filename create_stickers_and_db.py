@@ -527,6 +527,7 @@ def create_db_for_checking(barcodes):
     sheet = book.active
     book.create_sheet("Итог")
     book.create_sheet('Проверка')
+    sheet.protection.sheet = True
     sheet['A1'] = 'Номер заказа'
     sheet['B1'] = 'Артикул'
     sheet['C1'] = 'Наименование'
@@ -563,7 +564,7 @@ def create_db_for_checking(barcodes):
 
     book.active = 1
     sheet = book.active
-
+    sheet.protection.sheet = True
     column_names = ('Баркод', 'Артикул', 'Размем', 'Цвет', 'Должно быть', 'Проверено', 'Комментарий')
     input_colum_names(column_names, sheet)
     
