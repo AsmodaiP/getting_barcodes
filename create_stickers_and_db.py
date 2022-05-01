@@ -669,8 +669,9 @@ def set_status_to_orders(status, orders):
             "status": int(status)
         }]
     js = json.dumps(data_for_bulk_set_status)
+    logging.info(js)
     response = requests.put(url_for_set_status, headers=headers, data=js)
-
+    logging.info(response.json())
 
 def get_barcodes_with_full_info(orders):
     barcodes = get_barcodes_with_orders_and_chartId(orders)
