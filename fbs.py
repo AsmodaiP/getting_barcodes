@@ -17,7 +17,7 @@ TELEGRAM_TOKEN = os.environ['TELEGRAM_TOKEN']
 ID_FOR_NOTIFICATION = 295481377
 bot = telegram.Bot(token=TELEGRAM_TOKEN)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'credentials_service.json')
+SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, '../SERVICE/credentials_service.json')
 credentials = service_account.Credentials.from_service_account_file(
     SERVICE_ACCOUNT_FILE, scopes=SCOPES)
 RANGE_NAME = '12.2021'

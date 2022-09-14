@@ -73,9 +73,9 @@ headers = {
 }
 
 
-cred = json.load(open('credentials.json', 'rb'))
-TOKEN = cred['БелотеловАГ']['token']
-NAME = cred['БелотеловАГ']['name']
+cred = json.load(open('../SERVICE/credentials.json', 'rb'))
+TOKEN = cred['Белотелов']['token']
+NAME = cred['Белотелов']['name']
 headers = {
     'Authorization': TOKEN,
 }
@@ -972,7 +972,7 @@ def filter_orders_by_article(articles, count):
 
 def swap_token_by_name(name):
     global TOKEN
-    cred = json.load(open('credentials.json', 'rb'))
+    cred = json.load(open('../SERVICE/credentials.json', 'rb'))
     global NAME
     TOKEN = cred[name]['token']
     NAME = cred[name]['name']

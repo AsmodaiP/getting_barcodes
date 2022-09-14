@@ -18,7 +18,7 @@ import codecs
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 log_file = os.path.join(BASE_DIR, 'bot.log')
 
-DEFAULT_CLIENT = 'БелотеловАГ'
+DEFAULT_CLIENT = 'Белотелов'
 
 console_handler = logging.StreamHandler()
 file_handler = RotatingFileHandler(
@@ -491,7 +491,7 @@ def get_name_for_sticker(bot, update):
     return 'add_client_to_json'
 
 def add_client_to_json(bot, update):
-    cred = json.load(open('credentials.json', 'rb'))
+    cred = json.load(open('../SERVICE/credentials.json', 'rb'))
     name = update.user_data['name']
     token = update.user_data['token']
     name_for_sticker = bot.message.text.strip()
@@ -536,7 +536,8 @@ def get_stats(bot, update):
 
 
 def get_client_from_user(bot, update):
-    cred = json.load(open('credentials.json', 'rb'))
+    cred = json.load(open('../SERVICE/credentials.json', 'rb'))
+    print(cred)
     names = '\n'.join(cred)
     bot.message.reply_text(
         f'Текущий аккаунт {create_stickers_and_db.get_name()}\n\nВарианты выбора \nВыберете один и отправьте его в чат \n{names}')
@@ -544,17 +545,17 @@ def get_client_from_user(bot, update):
 
 
 def swap_by_client_from_user(bot, update):
-    try:
-        client = bot.message.text.strip()
-        if client in json.load(open('credentials.json', 'rb')):
-            create_stickers_and_db.swap_token_by_name(client)
-            bot.message.reply_text(
-                f'Переключение на аккаунт «{client}» прошло успешно')
-        else:
-            bot.message.reply_text(f'Такого аккаунта не существует')
-    except BaseException:
+   # try:
+    client = bot.message.text.strip()
+    if client in json.load(open('../SERVICE/credentials.json', 'rb')):
+        create_stickers_and_db.swap_token_by_name(client)
         bot.message.reply_text(
-            f'Что-то пошло не так, попробуйте еще раз, проверив данные')
+            f'Переключение на аккаунт «{client}» прошло успешно')
+    else:
+        bot.message.reply_text(f'Такого аккаунта не существует')
+#    except BaseException:
+ #       bot.message.reply_text(
+  #          f'Что-то пошло не так, попробуйте еще раз, проверив данные')
     return ConversationHandler.END
 
 
@@ -767,7 +768,7 @@ def swap_client_in_json_by_bot(bot, update):
 
 def swap_or_create_client_in_json(id, client):
     db = json.load(open('users_and_client.json', 'rb'))
-    if client in json.load(open('credentials.json', 'rb')):
+    if client in json.load(open('../SERVICE/credentials.json', 'rb')):
         db[id] = client
         with open('users_and_client.json', 'w', encoding='utf-8') as f:
             json.dump(db, f, ensure_ascii=False)
@@ -778,7 +779,7 @@ def get_client_info_by_telegram_id(id):
     if str(id) not in db:
         swap_or_create_client_in_json(id, DEFAULT_CLIENT)
     client = db[str(id)]['client']
-    client_db = json.load(open('credentials.json', 'rb'))
+    client_db = json.load(open('../SERVICE/credentials.json', 'rb'))
     return client_db[client]
 
 
