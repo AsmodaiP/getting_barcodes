@@ -35,7 +35,10 @@ THIN_BORDER = Border(left=Side(style='thin'),
                      top=Side(style='thin'),
                      bottom=Side(style='thin'))
 
-cred = json.load(open(os.path.join(BASE_DIR, '../SERVICE/credentials.json'), 'rb'))
+try:
+    cred = json.load(open(os.path.join(BASE_DIR, '../SERVICE/credentials.json'), 'rb'))
+except:
+    cred = json.load(open(os.path.join(BASE_DIR, 'credentials.json'), 'rb'))
 TOKEN = cred['Белотелов']['token']
 pdfmetrics.registerFont(
     TTFont(

@@ -73,7 +73,10 @@ headers = {
 }
 
 
-cred = json.load(open('../SERVICE/credentials.json', 'rb'))
+try:
+    cred = json.load(open(os.path.join(BASE_DIR, '../SERVICE/credentials.json'), 'rb'))
+except:
+    cred = json.load(open(os.path.join(BASE_DIR, 'credentials.json'), 'rb'))
 TOKEN = cred['Белотелов']['token']
 NAME = cred['Белотелов']['name']
 headers = {
@@ -117,7 +120,8 @@ def create_pdf_stickers_by_ids(ids):
     pdfs = []
     for id in ids:
         json_orders_id = {
-            "orderIds": [int(id)]
+            "orderIds": [int(id)],
+            "type": "qr"
         }
         response = requests.post(
             url_for_getting_stikers,
@@ -250,20 +254,21 @@ def edit_blank_pdf(barcode_info):
         merg.append(blank)
     merg.write('pdf/blank.pdf')
     merg.close()
-    logging.info(
-        f'Получена информация: наименование "{barcode_info["name"]}" '
-        f' {count}, '
-        f'артикул = {article}, '
-        f'chrtId = {chrtId} '
-        f'{"Size "+size if size != "" else ""} '
-        f'{"color "+ color if color != "" else ""} '
-        f'{"Доп цвета: "+extra_colors if extra_colors != "" else ""} ')
+    # logging.info(
+    #     f'Получена информация: наименование "{str(barcode_info["name"])}" '
+    #     f' {count}, '
+    #     f'артикул = {article}, '
+    #     f'chrtId = {chrtId} '
+    #     f'{"Size "+size if size != "" else ""} '
+    #     f'{"color "+ color if color != "" else ""} '
+    #     f'{"Доп цвета: "+extra_colors if extra_colors != "" else ""} ')
 
 
 def get_StickerEncoded_by_orderId(id):
     url = 'https://suppliers-api.wildberries.ru/api/v2/orders/stickers'
     json_order_id = {
-        "orderIds": [int(id)]
+        "orderIds": [int(id)],
+
     }
     response = requests.post(
         url,
@@ -304,7 +309,8 @@ def create_and_merge_pdf_by_barcodes_and_ids(barcodes_and_ids):
         end = 1000
         while orders[start:end] != []:
             json_orders_id = {
-                "orderIds": orders[start:end]
+                "orderIds": orders[start:end],
+                'type': 'qr'
             }
             response = requests.post(
                 url_for_getting_stikers,
@@ -381,7 +387,7 @@ def get_data_nomenclature_from_card_by_chrtId(card, chrtId):
 
 
 def get_card_by_chrtId(chrtId):
-    url = 'https://suppliers-api.wildberries.ru/card/list'
+    url = 'https://suppliers-api.wildberries.ru/content/v1/cards/list'
     json_for_request = {
         "id": 1,
         "jsonrpc": "2.0",
@@ -401,7 +407,7 @@ def get_card_by_chrtId(chrtId):
         }
     }
     response = requests.post(url=url, headers=headers, json=json_for_request)
-    card = response.json()['result']['cards'][0]
+    card = response.json()['data']['cards'][0]
     return card
 
 
@@ -433,32 +439,16 @@ def get_card_by_nmid(nmid):
 def getting_information_about_barcode_by_chartId(chrtId):
     print(1)
     good = get_card_by_chrtId(chrtId)
-    supplierVendorCode = good['supplierVendorCode']
+    print(good)
+    supplierVendorCode = good['vendorCode']
     name = ''
-    nomenclature_data, article, nomenclature = get_data_nomenclature_from_card_by_chrtId(
-        good, int(chrtId))
-    article = supplierVendorCode + article
-    nmid = nomenclature['nmId']
-    size = ''
-    color = ''
-    extra_colors = ''
-    addin = nomenclature['addin']
-    for type_and_params in addin:
-        if type_and_params['type'] in ('Цвет', 'Основной цвет'):
-            color = type_and_params['params'][0]['value']
-        if type_and_params['type'] == 'Доп. цвета':
-            for extra_color in type_and_params['params']:
-                extra_colors += extra_color['value'] + ' '
-    if 'Доп. цвета' in nomenclature.keys():
-        extra_colors = nomenclature['Доп. цвета']
-    for type_and_params in good['addin']:
-        if type_and_params['type'] == 'Наименование':
-            name = type_and_params['params'][0]['value']
-    for data in nomenclature_data['addin']:
-        if data['type'] == 'Размер':
-            size = data['params'][0]['value']
-        if data['type'] == 'Доп. цвета':
-            extra_colors = data['params'][0]['value']
+    # nomenclature_data, article, nomenclature = get_data_nomenclature_from_card_by_chrtId(
+    #     good, int(chrtId))
+    article = supplierVendorCode
+    # nmid = nomenclature['nmId']
+    size = good.get('techSize')
+    color = ' '.join(good.get('colors', []))
+    extra_colors = ' '.join(good.get('extraColors', []))
     info = {
         'name': name,
         'article': article,
@@ -466,7 +456,7 @@ def getting_information_about_barcode_by_chartId(chrtId):
         'size': size,
         'color': color,
         'extra_colors': extra_colors,
-        'nmid': nmid
+        'nmid': ''
     }
     return info
 
@@ -972,7 +962,10 @@ def filter_orders_by_article(articles, count):
 
 def swap_token_by_name(name):
     global TOKEN
-    cred = json.load(open('../SERVICE/credentials.json', 'rb'))
+    try:
+        cred = json.load(open(os.path.join(BASE_DIR, '../SERVICE/credentials.json'), 'rb'))
+    except:
+        cred = json.load(open(os.path.join(BASE_DIR, 'credentials.json'), 'rb'))
     global NAME
     TOKEN = cred[name]['token']
     NAME = cred[name]['name']

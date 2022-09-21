@@ -491,7 +491,10 @@ def get_name_for_sticker(bot, update):
     return 'add_client_to_json'
 
 def add_client_to_json(bot, update):
-    cred = json.load(open('../SERVICE/credentials.json', 'rb'))
+    try:
+        cred = json.load(open(os.path.join(BASE_DIR, '../SERVICE/credentials.json'), 'rb'))
+    except:
+        cred = json.load(open(os.path.join(BASE_DIR, 'credentials.json'), 'rb'))
     name = update.user_data['name']
     token = update.user_data['token']
     name_for_sticker = bot.message.text.strip()
@@ -536,8 +539,10 @@ def get_stats(bot, update):
 
 
 def get_client_from_user(bot, update):
-    cred = json.load(open('../SERVICE/credentials.json', 'rb'))
-    print(cred)
+    try:
+        cred = json.load(open(os.path.join(BASE_DIR, '../SERVICE/credentials.json'), 'rb'))
+    except:
+        cred = json.load(open(os.path.join(BASE_DIR, 'credentials.json'), 'rb'))
     names = '\n'.join(cred)
     bot.message.reply_text(
         f'Текущий аккаунт {create_stickers_and_db.get_name()}\n\nВарианты выбора \nВыберете один и отправьте его в чат \n{names}')
@@ -547,7 +552,11 @@ def get_client_from_user(bot, update):
 def swap_by_client_from_user(bot, update):
    # try:
     client = bot.message.text.strip()
-    if client in json.load(open('../SERVICE/credentials.json', 'rb')):
+    try:
+        cred = json.load(open(os.path.join(BASE_DIR, '../SERVICE/credentials.json'), 'rb'))
+    except:
+        cred = json.load(open(os.path.join(BASE_DIR, 'credentials.json'), 'rb'))
+    if client in cred:
         create_stickers_and_db.swap_token_by_name(client)
         bot.message.reply_text(
             f'Переключение на аккаунт «{client}» прошло успешно')
@@ -768,7 +777,11 @@ def swap_client_in_json_by_bot(bot, update):
 
 def swap_or_create_client_in_json(id, client):
     db = json.load(open('users_and_client.json', 'rb'))
-    if client in json.load(open('../SERVICE/credentials.json', 'rb')):
+    try:
+        cred = json.load(open(os.path.join(BASE_DIR, '../SERVICE/credentials.json'), 'rb'))
+    except:
+        cred = json.load(open(os.path.join(BASE_DIR, 'credentials.json'), 'rb'))
+    if client in cred:
         db[id] = client
         with open('users_and_client.json', 'w', encoding='utf-8') as f:
             json.dump(db, f, ensure_ascii=False)
@@ -779,8 +792,11 @@ def get_client_info_by_telegram_id(id):
     if str(id) not in db:
         swap_or_create_client_in_json(id, DEFAULT_CLIENT)
     client = db[str(id)]['client']
-    client_db = json.load(open('../SERVICE/credentials.json', 'rb'))
-    return client_db[client]
+    try:
+        cred = json.load(open(os.path.join(BASE_DIR, '../SERVICE/credentials.json'), 'rb'))
+    except:
+        cred = json.load(open(os.path.join(BASE_DIR, 'credentials.json'), 'rb'))
+    return cred[client]
 
 
 updater.dispatcher.add_handler(swap_client_handler)
