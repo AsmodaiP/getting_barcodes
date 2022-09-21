@@ -232,8 +232,9 @@ def edit_blank_pdf(barcode_info):
     chrtId = f'chrtId = {barcode_info["chrtId"]}'
     blanks = ['pdf/blank1.pdf']
     date = datetime.datetime.now().strftime("%d.%m.%y  %H:%M")
+    barcode = barcode_info['barcode']
     for params in (count, name_of_host, date, name, size,
-                   color, extra_colors, article, chrtId):
+                   color, extra_colors, article, chrtId, barcode):
         a = str(params)
         while len(a) > 0:
             if n > 8:
@@ -283,6 +284,7 @@ def create_and_merge_pdf_by_barcodes_and_ids(barcodes_and_ids):
     results_files = []
     url_for_getting_stikers = 'https://suppliers-api.wildberries.ru/api/v2/orders/stickers/pdf'
     for barcode in barcodes_and_ids.keys():
+        barcodes_and_ids[barcode]['info']['barcode'] = barcode
         edit_blank_pdf(barcodes_and_ids[barcode]['info'])
         pdfs = ['pdf/blank.pdf']
         # for id in barcodes_and_ids[barcode]['orders']:
@@ -436,28 +438,46 @@ def get_card_by_nmid(nmid):
     return card
 
 
+def get_name_by_vendorCode(vendor_code, sku):
+    url = 'https://suppliers-api.wildberries.ru/content/v1/cards/filter'
+    json_for_request = {
+        "vendorCodes": [
+            vendor_code
+        ]
+    }
+    response = requests.post(url=url, headers=headers, json=json_for_request)
+
+    for card in response.json()['data']:
+        print(card['sizes'])
+        if card['sizes'][0]['skus'][0] == sku:
+            for characteristic in card['characteristics']:
+                    if 'Наименование' in characteristic: 
+                        name = characteristic['Наименование']
+                        print(name)
+                        return name
 def getting_information_about_barcode_by_chartId(chrtId):
-    print(1)
     good = get_card_by_chrtId(chrtId)
-    print(good)
     supplierVendorCode = good['vendorCode']
+    
     name = ''
     # nomenclature_data, article, nomenclature = get_data_nomenclature_from_card_by_chrtId(
     #     good, int(chrtId))
     article = supplierVendorCode
     # nmid = nomenclature['nmId']
-    size = good.get('techSize')
+    size = good.get('sizes', [])[0].get('techSize')
+    
     color = ' '.join(good.get('colors', []))
     extra_colors = ' '.join(good.get('extraColors', []))
     info = {
-        'name': name,
+        'name': get_name_by_vendorCode(supplierVendorCode, good.get('sizes', [])[0].get('skus')[0]),
         'article': article,
         'chrtId': chrtId,
         'size': size,
         'color': color,
         'extra_colors': extra_colors,
-        'nmid': ''
+        'barcode': good.get('sizes', [])[0].get('skus')
     }
+    print(info)
     return info
 
 
