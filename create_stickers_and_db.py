@@ -702,13 +702,14 @@ def get_all_cards():
             cards += response.json()['data']['cards']
         return cards
     
-
 def find_card_with_specific_barcode(barcode, cards):
     for card in cards:
-        if card['sizes'][0]['skus'][0] == barcode:
-            return card
+        for size in card['sizes']:
+            for sku in size['skus']:
+                if sku == barcode:
+                    card['sizes']= [size]
+                    return card
     return 'Не найдено'
-
 
 def get_name_by_nmid(nmid):
     url = f'https://napi.wildberries.ru/api/catalog/{nmid}/detail.aspx'
@@ -734,7 +735,7 @@ def get_barcodes_with_full_info(orders):
 
 
 def create_stickers():
-    orders = get_all_orders(status=3)
+    orders = get_all_orders(status=1)
     if len(orders) == 0:
         return (0, 0)
     barcodes = get_barcodes_with_full_info(orders)
