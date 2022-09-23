@@ -227,14 +227,14 @@ def edit_blank_pdf(barcode_info):
     size = barcode_info['size']
     article = f'art {barcode_info["article"]}'
     color = barcode_info['color']
-    extra_colors = barcode_info['extra_colors']
+    # extra_colors = barcode_info['extra_colors']
     count = 'Количество = ' + str(barcode_info['count'])
-    chrtId = f'chrtId = {barcode_info["chrtId"]}'
+    nmid = f'nmid = {barcode_info["nmID"]}'
     blanks = ['pdf/blank1.pdf']
     date = datetime.datetime.now().strftime("%d.%m.%y  %H:%M")
-    barcode = barcode_info['barcode']
+    # barcode = barcode_info['barcode']
     for params in (count, name_of_host, date, name, size,
-                   color, extra_colors, article, chrtId, barcode):
+                   color,  article, nmid):
         a = str(params)
         while len(a) > 0:
             if n > 8:
@@ -683,19 +683,58 @@ def set_status_to_orders(status, orders):
     response = requests.put(url_for_set_status, headers=headers, data=js)
     logging.info(response.json())
 
+def get_all_cards():
+    url = 'https://suppliers-api.wildberries.ru/content/v1/cards/list'
+    json_data = {
+    "sort": 
+    {
+        "limit": 500,
+        "offset": 0,
+        "searchValue": '',
+        "sortColumn": "",
+        "ascending": False
+    }
+    }
+    cards = []
+    while True:
+        response = requests.post(url, headers=headers, json=json_data)
+        if response.json()['data']:
+            cards += response.json()['data']['cards']
+        return cards
+    
+
+def find_card_with_specific_barcode(barcode, cards):
+    for card in cards:
+        if card['sizes'][0]['skus'][0] == barcode:
+            return card
+    return 'Не найдено'
+
+
+def get_name_by_nmid(nmid):
+    url = f'https://napi.wildberries.ru/api/catalog/{nmid}/detail.aspx'
+    response = requests.get(url, headers=headers)
+    return response.json()['data']['productInfo']['name']
+
 def get_barcodes_with_full_info(orders):
     barcodes = get_barcodes_with_orders_and_chartId(orders)
-    print(1)
-    barcodes = add_information_about_barcodes_and_len(barcodes)
-
-    print(2)
+    # barcodes = add_information_about_barcodes_and_len(barcodes)
+    cards = get_all_cards()
+    for barcode in barcodes:
+        barcodes[barcode]['info'] ={}
+        
+        card = find_card_with_specific_barcode(barcode, cards)
+        barcodes[barcode]['info']['color'] = ' '.join(card['colors'])
+        barcodes[barcode]['info']['size'] = card['sizes'][0]['techSize']
+        barcodes[barcode]['info']['article']= card['vendorCode']
+        barcodes[barcode]['info']['nmID'] =card['nmID']
+        barcodes[barcode]['info']['name'] = get_name_by_nmid(card['nmID'])
+        barcodes[barcode]['info']['count'] = len(barcodes[barcode]['orders'])
     barcodes = sorted_barcodes_by_count_of_orders(barcodes)
-    print(3)
     return barcodes
 
 
 def create_stickers():
-    orders = get_all_orders(status=1)
+    orders = get_all_orders(status=3)
     if len(orders) == 0:
         return (0, 0)
     barcodes = get_barcodes_with_full_info(orders)
@@ -1109,12 +1148,25 @@ def create_db_by_file(file):
     create_db_for_checking(barcodes)
 
 if __name__ == '__main__':
-    # orders = get_all_orders(status=1)
+    # create_stickers()
+
+    # orders = get_all_orders(status=3)
+    # with open('orders.json', 'w') as f:
+    #     json.dump(orders, f, indent=4, ensure_ascii=False)
     # print(orders)
 
-    with open('barcodes.json', 'r', encoding='utf-8') as f:
-        bar = json.load(f)
-    create_db_for_checking(bar)
+    # with open('barcodes.json', 'r', encoding='utf-8') as f:
+    #     bar = json.load(f)
+    # add_information_about_tech_size_and_color(barcodes=bar)
+    # print(bar)
+
+    with open('orders.json', 'r', encoding='utf-8') as f:
+        a = get_barcodes_with_full_info(json.load(f))
+        print(a)
+    
+
+    # get_name_by_nmid()
+    # create_db_for_checking(bar)
     # barcodes = get_barcodes_with_full_info(orders)
     # with open('barcodes.json', 'w', encoding='utf-8') as f:
     #     json.dump(barcodes, f, ensure_ascii=False)
